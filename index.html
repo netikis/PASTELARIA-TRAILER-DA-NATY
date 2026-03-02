@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#8D6E63">
+<title>TRAILER DA NATY - GESTÃO PRO</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&family=Pacifico&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+
+<style>
+  :root {
+      /* PALETA TRAILER DA NATY */
+      --primary: #8D6E63;    /* Marrom Café */
+      --accent: #D88D98;     /* Rosa Logo */
+      --bg-dark: #2c1a0e;    /* Fundo Escuro */
+      --card-bg: #3E2723;    /* Cards */
+      --text-main: #FFF8E1;  /* Texto Claro */
+      --success: #66BB6A;    
+      --danger: #EF5350;     
+  }
+
+  body { 
+      font-family: 'Poppins', sans-serif; 
+      background-color: var(--bg-dark); 
+      color: var(--text-main); 
+      margin: 0; 
+      padding-bottom: 60px;
+      overflow-x: hidden;
+      min-height: 100vh;
+  }
+
+  /* MARCA D'ÁGUA */
+  body::before {
+      content: "";
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 80%; max-width: 500px; height: 80%;
+      background-image: var(--bg-logo); 
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: contain;
+      opacity: 0.08; 
+      z-index: -1;
+      pointer-events: none;
+      filter: grayscale(0.5);
+  }
+
+  /* --- LOGIN --- */
+  #loginOverlay { 
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+      background: radial-gradient(circle at center, #4E342E 0%, #1a0f08 100%); 
+      z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+      backdrop-filter: blur(5px);
+  }
+  .login-box { 
+      background: rgba(62, 39, 35, 0.95); 
+      padding: 30px; border-radius: 30px; 
+      border: 2px solid var(--accent); 
+      text-align: center; width: 85%; max-width: 320px; 
+      box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+  }
+  .logo-login-img {
+      width: 120px; height: 120px; 
+      object-fit: cover; border-radius: 50%; 
+      border: 3px solid #fff; 
+      box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      margin-bottom: 15px;
+      background: #fff;
+  }
+  .login-title { 
+      font-family: 'Pacifico', cursive; 
+      color: var(--accent); font-size: 28px; margin: 0; 
+      text-shadow: 2px 2px 0px #3E2723;
+  }
+  
+  /* --- HEADER CENTRALIZADO --- */
+  .header { 
+      display: flex; align-items: center; justify-content: flex-end; 
+      background: rgba(62, 39, 35, 0.95); 
+      padding: 10px 20px; 
+      height: 70px; 
+      position: sticky; top: 0; z-index: 100;
+      border-bottom: 2px solid var(--accent);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  .header-center {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      display: flex; align-items: center; gap: 15px; width: max-content;
+  }
+  .titulo { 
+      font-family: 'Pacifico', cursive; font-size: 28px; color: var(--accent); 
+      letter-spacing: 1px; white-space: nowrap; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+  }
+  .logo-header-img {
+      width: 55px; height: 55px; border-radius: 50%; border: 2px solid #fff; 
+      object-fit: cover; display: none;
+  }
+  @media (max-width: 400px) {
+      .titulo { font-size: 20px; } .logo-header-img { width: 40px; height: 40px; } .header-center { gap: 8px; }
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 20px 15px; }
+
+  /* --- CARDS --- */
+  .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 25px; }
+  .dash-card { 
+      background: linear-gradient(145deg, #4E342E, #3E2723); 
+      padding: 15px; border-radius: 16px; text-align: center; 
+      border: 1px solid #5D4037; box-shadow: 4px 4px 10px #1a0f08;
+  }
+  .dash-card h3 { font-size: 11px; color: #D7CCC8; text-transform: uppercase; margin: 0 0 5px 0; }
+  .dash-card div { font-size: 18px; font-weight: 700; color: #fff; }
+
+  .card { 
+      background: rgba(62, 39, 35, 0.85); padding: 20px; 
+      border-radius: 20px; margin-bottom: 20px; 
+      border: 1px solid #5D4037;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.2); backdrop-filter: blur(5px);
+  }
+  .card h3 { color: var(--accent); margin-top: 0; font-weight: 600; font-size: 16px; border-bottom: 1px dashed #5D4037; padding-bottom: 10px; margin-bottom: 15px; }
+
+  /* --- INPUTS --- */
+  .row-inputs { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  input, select { 
+      padding: 12px; border-radius: 10px; border: 1px solid #6D4C41; 
+      background: #2D1B15; color: #FFF8E1; width: 100%; box-sizing: border-box; 
+      font-family: 'Poppins', sans-serif; font-size: 14px;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--accent); background: #3E2723; }
+  
+  /* LUPA CEP */
+  .input-group { position: relative; flex: 1; }
+  .btn-lupa {
+      position: absolute; right: 5px; top: 5px; height: 34px; width: 34px;
+      background: var(--accent); color: #3E2723; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; border:none;
+  }
+
+  /* --- BOTÕES --- */
+  button { 
+      padding: 12px; border-radius: 10px; cursor: pointer; 
+      font-weight: 600; border: none; color: #fff; 
+      font-size: 13px; text-transform: uppercase; transition: transform 0.2s;
+  }
+  button:active { transform: scale(0.96); }
+  .primary { background: var(--accent); color: #3E2723; font-weight: 800; }
+  .success { background: var(--success); color: #fff; }
+  .danger { background: var(--danger); color: white; }
+  .warning { background: #FFCA28; color: #3E2723; }
+  .dark { background: #5D4037; color: #fff; }
+  .wapp { background: #25D366; color: #fff; }
+  .btn-perfil { width: 100%; margin: 10px 0; font-size: 14px; padding: 15px; }
+
+  /* --- CLIENT CARD --- */
+  .client-card { 
+      background: #4E342E; color: #fff; padding: 15px; margin-top: 15px; 
+      border-radius: 16px; border-left: 5px solid var(--accent); 
+      box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+  }
+  .client-name { font-size: 18px; font-weight: 700; color: #FFCCBC; }
+  .saldo-tag { background: #2D1B15; padding: 5px 10px; border-radius: 8px; font-weight: bold; }
+
+  /* --- AÇÕES GRANDES (BOTÕES DO CARD) - AJUSTADOS --- */
+  .action-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 15px;
+      padding: 8px;
+      background: rgba(0,0,0,0.2);
+      border-radius: 10px;
+  }
+  .btn-action {
+      flex: 1;
+      min-width: 80px; /* Diminuído para caber melhor */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 5px; /* Mais compacto */
+      font-size: 11px; /* Fonte levemente menor */
+      text-align: center;
+      color: #fff;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+  }
+  .btn-action span { font-size: 20px; margin-bottom: 3px; display: block; }
+  
+  .act-edit { background: #5D4037; }
+  .act-print { background: var(--accent); color: #3E2723; }
+  .act-share { background: #25D366; }
+  .act-pay { background: #FFCA28; color: #3E2723; }
+  .act-link { background: #0277bd; }
+  .act-del { background: #EF5350; }
+
+  /* --- TABELA E ITENS GIGANTES --- */
+  table { width: 100%; border-collapse: separate; border-spacing: 0 4px; margin-top: 10px; }
+  td { background: #3E2723; padding: 12px 8px; vertical-align: middle; color: #D7CCC8; }
+  td:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
+  td:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; text-align: right; }
+  
+  /* ESTILOS DOS ITENS AUMENTADOS */
+  .item-desc { font-size: 18px !important; font-weight: 900; color: #fff; margin-bottom: 2px; }
+  .item-ingred { font-size: 13px !important; color: #aaa; margin-bottom: 4px; font-style: italic; }
+  .item-qtd { font-size: 16px !important; font-weight: bold; color: var(--accent); }
+  .item-val { font-size: 18px !important; font-weight: bold; color: var(--success); }
+  
+  /* BOTÕES LATERAIS DO ITEM ($ E X) MAIORES */
+  .btn-item-action {
+      padding: 10px 15px !important;
+      font-size: 16px !important;
+      font-weight: 900 !important;
+      margin-left: 5px;
+      border-radius: 8px;
+  }
+
+  /* CARRINHO DE COMPRAS */
+  .carrinho-table { width: 100%; margin-top: 15px; border: 1px solid #5D4037; background: #2D1B15; border-radius: 8px; }
+  .carrinho-table th { background: #3E2723; color: var(--accent); padding: 8px; font-size: 12px; text-align: left; }
+  .carrinho-table td { padding: 8px; border-bottom: 1px solid #444; color: #fff; font-size: 13px; }
+
+  /* LISTA DE PRODUTOS MODAL */
+  .produto-item { display: flex; justify-content: space-between; align-items: center; background: #2D1B15; padding: 15px; margin-bottom: 10px; border-radius: 10px; border: 1px solid #5D4037; }
+  .produto-info { flex: 1; }
+  .produto-nome { font-weight: bold; font-size: 16px; color: #fff; }
+  .produto-ingredientes { font-size: 12px; color: #aaa; }
+  .produto-preco { font-weight: bold; color: var(--success); font-size: 14px; margin-top: 5px; }
+  .btn-add-prod { background: var(--success); color: #fff; border-radius: 50px; padding: 8px 15px; font-size: 12px; white-space: nowrap; }
+
+  /* --- BADGES --- */
+  .badge-tipo { font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 5px; text-transform: uppercase; vertical-align: middle; }
+  .bg-online { background: #64B5F6; color: #000; }
+  .bg-presencial { background: #FFB74D; color: #000; }
+  .ingrediente-tag { background: #5D4037; color: #FFCCBC; padding: 4px 8px; border-radius: 15px; font-size: 11px; margin: 2px; display: inline-block; border: 1px solid #8D6E63; }
+
+  /* --- MODAIS (OVERLAY) --- */
+  .modal { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 99999 !important; backdrop-filter: blur(5px); }
+  .modal-content { background: #3E2723; border: 2px solid var(--accent); width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 20px; border-radius: 15px; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
+
+  /* --- IMPRESSÃO --- */
+  #printOverlay { display: none; background: #fff; color: #000 !important; z-index: 100000; }
+  @media print {
+    @page { margin: 0; size: auto; }
+    body, html { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; height: 100% !important; }
+    body > *:not(#printOverlay) { display: none !important; }
+    #printOverlay { display: block !important; position: fixed !important; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 999999; padding-top: 5mm; }
+    .print-controls { display: none !important; }
+  }
+  
+  body.role-func .admin-only { display: none !important; }
+  .search-box { background: #3E2723; border: 1px solid var(--accent); color: #fff; padding: 12px; border-radius: 20px; width: 100%; }
+
+</style>
+</head>
+<body>
+
+<div id="printOverlay">
+    <div class="print-controls" style="background:#222; padding:10px; text-align:center;">
+        <button class="danger" onclick="fecharImpressao()">❌ FECHAR</button>
+        <button class="primary" onclick="window.print()">🖨️ IMPRIMIR</button>
+    </div>
+    <div id="printContent" class="print-content" style="padding:20px; color:#000;"></div>
+</div>
+
+<div id="loginOverlay">
+  <div class="login-box">
+    <img id="logoLoginDisplay" class="logo-login-img" src="https://cdn-icons-png.flaticon.com/512/3081/3081840.png">
+    <h1 class="login-title">Trailer da Naty</h1>
+    <p style="color: #D7CCC8; margin-top: 5px; font-size: 12px;">Gestão Profissional</p>
+    <br>
+    
+    <div id="step-1">
+        <button class="btn-perfil primary" onclick="selecionarPerfil('admin')">🛡️ GERÊNCIA</button>
+        <button class="btn-perfil dark" onclick="selecionarPerfil('func')">📝 ATENDIMENTO</button>
+    </div>
+
+    <div id="step-2" style="display:none;">
+        <form onsubmit="event.preventDefault(); fazerLogin();">
+            <input type="email" id="emailInput" placeholder="E-mail" required style="margin-bottom:10px; text-align:center;">
+            <input type="password" id="senhaInput" placeholder="Senha" required style="margin-bottom:20px; text-align:center;">
+            
+            <div style="margin-bottom:15px; display:flex; align-items:center; justify-content:center; gap:5px; font-size:12px; color:#aaa;">
+                <input type="checkbox" id="chkLembrarEmail" style="width:auto; margin:0;"> Lembrar E-mail
+            </div>
+
+            <button type="submit" class="success" id="btnLogin" style="width: 100%; padding: 15px;">ENTRAR</button>
+        </form>
+        <div id="msgLogin" style="color: #ff5252; margin-top: 15px; font-size: 12px;"></div>
+        <button onclick="voltarLogin()" style="background:transparent; color:#aaa; margin-top:10px; width:auto; padding:5px;">⬅ Voltar</button>
+    </div>
+  </div>
+</div>
+
+<header class="header">
+  <div class="header-center">
+    <img id="logoHeader" src="" class="logo-header-img">
+    <div class="titulo">Trailer da Naty</div>
+  </div>
+  <div style="display:flex; align-items:center; gap:10px; z-index:101;">
+    <div id="userDisplay" style="font-size:10px; text-align:right; color:#D7CCC8;"></div>
+    <button class="danger" onclick="logout()" style="padding: 8px 12px; font-size: 10px; border-radius:8px;">SAIR</button>
+  </div>
+</header>
+
+<div class="container">
+  
+  <div class="dashboard admin-only">
+    <div class="dash-card"><h3>Vendas Hoje</h3><div id="dashTotal" style="color:#A5D6A7">R$ 0,00</div></div>
+    <div class="dash-card"><h3>Recebido</h3><div id="dashRecebido" style="color:#FFF">R$ 0,00</div></div>
+    <div class="dash-card" style="border-color: var(--accent);"><h3>Pedidos (30d)</h3><div id="dashContador">0</div></div>
+  </div>
+
+  <details class="card admin-only" style="padding:15px;">
+    <summary style="cursor:pointer; color:#D7CCC8; font-weight:bold;">⚙️ CONFIGURAÇÕES & CARDÁPIO</summary>
+    <div style="margin-top:20px; display: flex; flex-wrap: wrap; gap: 20px;">
+      
+      <div style="flex: 1; min-width: 300px;">
+        <h4 style="color:var(--accent)">🏢 Dados da Empresa</h4>
+        <input type="text" id="confEmpNome" placeholder="Nome" value="Trailer da Naty" style="margin-bottom:5px;">
+        <input type="text" id="confEmpEnd" placeholder="Endereço" style="margin-bottom:5px;">
+        <input type="text" id="confEmpTel" placeholder="Telefone" style="margin-bottom:5px;">
+        
+        <h4 style="color:#FFCA28; margin-top:15px;">🖼️ Logo do Sistema</h4>
+        <div style="background:#2D1B15; padding:10px; border-radius:10px; font-size:11px; color:#aaa; margin-bottom:10px;">
+            A logo será salva na nuvem e redimensionada automaticamente.
+        </div>
+        <input type="file" id="logoInput" accept="image/*" style="margin-bottom:10px;">
+        <button class="primary" onclick="salvarDadosEmpresa()" style="width:100%;">💾 SALVAR DADOS</button>
+      </div>
+
+      <div style="flex: 1; min-width: 300px; background:#2D1B15; padding:15px; border-radius:10px; border:1px solid #5D4037;">
+        <h4 style="color:var(--success); margin-top:0;">📦 Cadastrar Produto</h4>
+        <input type="text" id="catNome" placeholder="Nome do Produto (Ex: Pastel Carne)" style="margin-bottom:5px;">
+        <input type="number" id="catValor" placeholder="Preço (R$)" style="margin-bottom:5px;">
+        
+        <div style="background:#3E2723; padding:10px; border-radius:8px; margin-bottom:10px;">
+            <label style="font-size:11px; color:#aaa;">Ingredientes:</label>
+            <div style="display:flex; gap:5px;">
+                <input type="text" id="novoIngrediente" placeholder="Ex: Carne, Azeitona...">
+                <button class="dark" onclick="addIngredienteTemp()" style="width:40px;">+</button>
+            </div>
+            <div id="listaIngredientesTemp" style="margin-top:5px;"></div>
+        </div>
+
+        <button class="success" onclick="salvarCatalogo()" style="width:100%;">+ ADICIONAR AO CARDÁPIO</button>
+      </div>
+      
+      <div style="flex: 1; min-width: 250px;">
+        <h4 style="color:#aaa">🛠️ Ferramentas</h4>
+        <button class="dark" onclick="fazerBackupLocal()" style="width: 100%; margin-bottom: 5px;">BAIXAR BACKUP</button>
+        <button class="warning" onclick="abrirRestauracao()" style="width: 100%; margin-bottom: 5px;">RESTAURAR BACKUP</button>
+        <input type="file" id="inputBackup" accept=".json" style="display:none" onchange="processarRestauracao(this)">
+        <button class="dark" onclick="abrirModalUsuario()" style="width: 100%;">NOVO USUÁRIO</button>
+      </div>
+    </div>
+  </details>
+
+  <div class="card admin-only">
+    <h3>👤 Novo Cliente</h3>
+    <div class="row-inputs">
+      <input type="text" id="nome" placeholder="Nome do Cliente" style="flex: 2;">
+      <input type="text" id="cpf_cnpj" placeholder="CPF / CNPJ" style="flex: 1;">
+      <input type="text" id="ie" placeholder="Inscrição Estadual" style="flex: 1;">
+    </div>
+    <div class="row-inputs">
+      <input type="text" id="telefone" placeholder="Telefone / WhatsApp">
+      <div class="input-group">
+          <input type="text" id="cep" placeholder="CEP (00000-000)">
+          <button class="btn-lupa" onclick="buscarCep()">🔍</button>
+      </div>
+    </div>
+    <div class="row-inputs">
+        <input type="text" id="logradouro" placeholder="Endereço" style="flex: 2;">
+        <input type="text" id="bairro" placeholder="Bairro" style="flex: 1;">
+        <input type="text" id="complemento" placeholder="Comp." style="flex: 1;">
+    </div>
+    <div class="row-inputs">
+        <input type="text" id="cidade" placeholder="Cidade/UF" readonly style="background:#222; color:#777;">
+    </div>
+    <button class="primary" onclick="adicionarCliente()" style="width:100%;">CADASTRAR CLIENTE</button>
+  </div>
+
+  <datalist id="opcoesCatalogo"></datalist>
+
+  <div class="card admin-only">
+    <h3>📋 Novo Pedido</h3>
+    
+    <div class="row-inputs" style="background:#2D1B15; padding:10px; border-radius:10px; margin-bottom:15px; align-items:center;">
+        <div style="flex:1;">
+            <label style="font-size:12px; color:#aaa;">Tipo de Pedido:</label>
+            <div style="display:flex; gap:15px; margin-top:5px;">
+                <label style="display:flex; align-items:center; cursor:pointer;">
+                    <input type="radio" name="tipoPedido" value="presencial" checked style="width:auto; margin-right:5px;"> Presencial
+                </label>
+                <label style="display:flex; align-items:center; cursor:pointer;">
+                    <input type="radio" name="tipoPedido" value="online" style="width:auto; margin-right:5px;"> Online
+                </label>
+            </div>
+        </div>
+        <div style="flex:1;">
+             <label style="font-size:12px; color:#aaa;">Nº Pedido:</label>
+             <input type="number" id="numPedido" placeholder="Auto" style="text-align:center; font-weight:bold;">
+        </div>
+    </div>
+
+    <label style="font-size:12px; color:#aaa;">Selecione o Cliente:</label>
+    <select id="clienteSelect" style="margin-bottom: 10px; color:#fff; background:#2D1B15; border:1px solid var(--primary);">
+        <option value="">Carregando clientes...</option>
+    </select>
+    
+    <div style="background:#2D1B15; padding:10px; border-radius:10px; border:1px dashed #5D4037;">
+        <button class="primary" onclick="abrirModalSelecaoProdutos()" style="width:100%; margin-bottom:10px; background:#5D4037; border:1px solid var(--accent); color:#fff;">🔍 BUSCAR NO CARDÁPIO</button>
+        <div class="row-inputs">
+          <input type="text" id="descricao" placeholder="Produto selecionado..." style="flex: 3;" readonly>
+          <input type="number" id="quantidade" placeholder="Qtd" style="flex: 1;" value="1" oninput="calcularTotalPrincipal()">
+        </div>
+        <div id="displayIngredientes" style="margin-bottom:10px; font-size:11px; color:#aaa; font-style:italic;"></div>
+        <div class="row-inputs">
+           <input type="number" id="valorUnitario" placeholder="R$ Unit" style="flex: 1;" oninput="calcularTotalPrincipal()">
+           <input type="text" id="valorTotal" placeholder="TOTAL R$ 0,00" style="flex: 1; background: #000; color: #A5D6A7; font-weight: bold; border:1px solid var(--success);" readonly>
+           <button class="dark" onclick="adicionarAoCarrinho()" style="flex:1; height:46px; background:#FFCA28; color:#000;">➕ ADICIONAR AO CARRINHO</button>
+        </div>
+    </div>
+
+    <div id="carrinhoArea" style="display:none; margin-top:15px;">
+        <h4 style="color:#fff; margin-bottom:5px;">🛒 Itens no Pedido Atual</h4>
+        <table class="carrinho-table">
+            <thead>
+                <tr>
+                    <th>Item</th>
+                    <th>Qtd</th>
+                    <th>Valor</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody id="listaCarrinho"></tbody>
+        </table>
+        <div style="text-align:right; margin-top:10px; font-size:16px; font-weight:bold; color:var(--success);">
+            Total do Pedido: <span id="totalCarrinhoDisplay">R$ 0,00</span>
+        </div>
+        <button class="success" onclick="concluirPedido()" style="width:100%; margin-top:10px; padding:15px; font-size:16px;">✅ CONCLUIR PEDIDO</button>
+    </div>
+
+    <input type="date" id="dataEntrada" style="display:none;">
+  </div>
+
+  <div style="margin-top:20px;">
+    <input type="text" id="searchBox" class="search-box admin-only" placeholder="🔍 Buscar Cliente..." onkeyup="render()" autocomplete="off">
+    <div id="listaClientes">Carregando...</div>
+    <div class="pagination" id="paginacaoControles" style="display:flex; justify-content:center; gap:10px; margin-top:20px;">
+        <button class="dark" id="btnAnt" onclick="mudarPagina(-1)">⬅</button>
+        <span id="pageInfo" style="align-self: center; color: #D7CCC8;">Pág 1</span>
+        <button class="dark" id="btnProx" onclick="mudarPagina(1)">➡</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modalSelecaoProdutos">
+    <div class="modal-content">
+        <h3 style="color:var(--accent)">Cardápio</h3>
+        <input type="text" id="buscaProdutoModal" placeholder="🔍 Filtrar produto..." onkeyup="renderProdutosModal()" style="margin-bottom:15px;">
+        <div id="listaProdutosModal"></div>
+        <br>
+        <button class="danger" onclick="document.getElementById('modalSelecaoProdutos').style.display='none'" style="width:100%">FECHAR</button>
+    </div>
+</div>
+
+<div class="modal" id="assinaturaModal">
+  <div class="modal-content" style="text-align:center;">
+    <h3 style="color:var(--accent)">Pagamento / Assinatura</h3>
+    <div style="background:#fff; padding:5px; border-radius:5px; margin-bottom:10px;">
+        <canvas id="canvasAssinatura" style="width:100%; height:150px; cursor:crosshair;"></canvas>
+    </div>
+    <div class="check-save" style="display:flex; justify-content:center; gap:10px; margin-bottom:15px; color:#D7CCC8; font-size:12px;">
+        <input type="checkbox" id="salvarAssinaturaCheck" checked><span>Salvar assinatura</span>
+    </div>
+    <div style="display:flex; gap:10px; justify-content:center; margin-bottom:20px;">
+        <button class="dark" onclick="limparAssinatura()">Limpar</button>
+        <button class="danger" onclick="fecharAssinatura()">Fechar</button>
+    </div>
+    <button class="primary" onclick="finalizarAssinatura('cupom')" style="width:100%; margin-bottom:10px;">🖨️ IMPRIMIR CUPOM</button>
+    <button class="wapp" onclick="gerarImagemWhatsApp()" style="width:100%;">📱 ENVIAR ZAP</button>
+  </div>
+</div>
+
+<div class="modal" id="modalUsuario">
+  <div class="modal-content">
+    <h3>👥 Novo Acesso</h3>
+    <input type="text" id="novoUserNome" placeholder="Nome">
+    <input type="email" id="novoUserEmail" placeholder="E-mail">
+    <input type="password" id="novoUserSenha" placeholder="Senha">
+    <select id="novoUserPerfil" style="margin-top:10px;">
+        <option value="func">Balcão</option>
+        <option value="admin">Gerente</option>
+    </select>
+    <br><br>
+    <button class="success" onclick="criarUsuario()" style="width:100%">CRIAR</button>
+    <button class="danger" onclick="document.getElementById('modalUsuario').style.display='none'" style="width:100%; margin-top:10px;">CANCELAR</button>
+  </div>
+</div>
+
+<div class="modal" id="modalEditarCliente">
+  <div class="modal-content">
+    <h3>✏️ Editar</h3>
+    <input type="hidden" id="editCliId">
+    <label style="font-size:12px; color:#aaa;">Nome</label><input type="text" id="editCliNome">
+    <label style="font-size:12px; color:#aaa;">Telefone</label><input type="text" id="editCliTel">
+    <label style="font-size:12px; color:#aaa;">Endereço</label><input type="text" id="editCliEnd">
+    <br><br>
+    <button class="success" onclick="confirmarEdicaoCliente()" style="width:100%">SALVAR</button>
+    <button class="danger" onclick="document.getElementById('modalEditarCliente').style.display='none'" style="width:100%; margin-top:10px;">CANCELAR</button>
+  </div>
+</div>
+<div id="hiddenPrintArea"></div>
+
+<script>
+  // ================= CHAVES DO FIREBASE =================
+  const firebaseConfig = {
+    apiKey: "AIzaSyCzVRXFXsD1dAgy4cyvSF0qjZwb2sVdB_E",
+    authDomain: "sistema-de-pastelaria.firebaseapp.com",
+    projectId: "sistema-de-pastelaria",
+    storageBucket: "sistema-de-pastelaria.firebasestorage.app",
+    messagingSenderId: "857527247447",
+    appId: "1:857527247447:web:7b055dd4f3bdabc5f17912"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.firestore();
+  const auth = firebase.auth();
+  
+  let clientes = []; let catalogo = []; let logoBase64 = localStorage.getItem('logoPastelaria') || "";
+  let empDados = { nome: "TRAILER DA NATY", end: "", tel: "" };
+  let ingredientesTemp = [];
+  let contadorConfig = { count: 0, lastReset: Date.now() };
+  let paginaAtual = 1; const itensPorPagina = 10;
+  let unsubscribeClientes = null; let unsubscribeCatalogo = null; let unsubscribeEmpresa = null;
+  let signId = null;
+  let carrinhoCompras = [];
+
+  function setupCanvasEvents(canvas) {
+      if(!canvas) return;
+      const ctx = canvas.getContext('2d');
+      let isDrawing = false; let lastX = 0; let lastY = 0;
+      canvas.addEventListener('mousedown', (e) => { isDrawing = true; [lastX, lastY] = [e.offsetX, e.offsetY]; });
+      canvas.addEventListener('mousemove', (e) => { if (!isDrawing) return; ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke(); [lastX, lastY] = [e.offsetX, e.offsetY]; });
+      canvas.addEventListener('mouseup', () => isDrawing = false); canvas.addEventListener('mouseout', () => isDrawing = false);
+      canvas.addEventListener('touchstart', (e) => { e.preventDefault(); isDrawing = true; const r = canvas.getBoundingClientRect(); const t = e.touches[0]; lastX = t.clientX - r.left; lastY = t.clientY - r.top; }, {passive: false});
+      canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (!isDrawing) return; const r = canvas.getBoundingClientRect(); const t = e.touches[0]; const x = t.clientX - r.left; const y = t.clientY - r.top; ctx.beginPath(); ctx.moveTo(lastX, lastY); ctx.lineTo(x, y); ctx.stroke(); lastX = x; lastY = y; }, {passive: false});
+      canvas.addEventListener('touchend', () => isDrawing = false);
+  }
+
+  $(document).ready(function(){
+      $('#telefone, #editCliTel').mask('(00) 00000-0000');
+      $('#cep').mask('00000-000');
+      $('#cpf_cnpj').mask('000.000.000-00', {onKeyPress: function(val, e, field, options) { field.mask(val.length > 14 ? '00.000.000/0000-00' : '000.000.000-000'); }});
+      document.getElementById('dataEntrada').value = new Date().toISOString().split('T')[0];
+      
+      const savedEmail = localStorage.getItem('naty_saved_email');
+      if(savedEmail) {
+          document.getElementById('emailInput').value = savedEmail;
+          document.getElementById('chkLembrarEmail').checked = true;
+      }
+      
+      aplicarLogo(); 
+  });
+
+  // --- AUTH ---
+  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(() => {
+      auth.onAuthStateChanged((user) => {
+          if (user) {
+              db.collection("usuarios").doc(user.uid).get().then((doc) => {
+                  let role = (doc.exists) ? doc.data().perfil : 'admin';
+                  let nome = (doc.exists) ? doc.data().nome : user.email;
+                  if(role === 'admin') document.body.classList.remove('role-func'); else document.body.classList.add('role-func');
+                  document.getElementById('userDisplay').innerHTML = `👤 ${nome}<br><span style="opacity:0.6">${role.toUpperCase()}</span>`;
+                  document.getElementById('loginOverlay').style.display = 'none';
+                  iniciarSincronizacao();
+              }).catch(()=>{ 
+                   document.getElementById('loginOverlay').style.display = 'none';
+                   iniciarSincronizacao();
+              });
+          } else {
+              pararSincronizacao(); document.getElementById('loginOverlay').style.display = 'flex';
+              voltarLogin();
+          }
+      });
+  });
+
+  function selecionarPerfil(role) { document.getElementById('step-1').style.display = 'none'; document.getElementById('step-2').style.display = 'block'; }
+  function voltarLogin() { document.getElementById('step-1').style.display = 'block'; document.getElementById('step-2').style.display = 'none'; document.getElementById('senhaInput').value = ''; }
+  function fazerLogin() { 
+      const email = document.getElementById('emailInput').value; 
+      const pass = document.getElementById('senhaInput').value; 
+      if(document.getElementById('chkLembrarEmail').checked) { localStorage.setItem('naty_saved_email', email); } else { localStorage.removeItem('naty_saved_email'); }
+      auth.signInWithEmailAndPassword(email, pass).catch((error) => { document.getElementById('msgLogin').innerText = "Dados incorretos."; }); 
+  }
+  function logout() { auth.signOut(); }
+
+  // --- SYNC ---
+  function iniciarSincronizacao() {
+      if(unsubscribeClientes) return; 
+      unsubscribeClientes = db.collection("clientes").orderBy("nome").onSnapshot((snapshot) => { clientes = []; snapshot.forEach((doc) => { clientes.push({ id: doc.id, ...doc.data() }); }); atualizarSelect(); atualizarDashboard(); render(); });
+      unsubscribeCatalogo = db.collection("catalogo").onSnapshot((s)=>{ catalogo=[]; let d=document.getElementById('opcoesCatalogo'); if(!d) return; d.innerHTML=''; s.forEach((doc)=>{ let k=doc.data(); catalogo.push({id:doc.id,...k}); d.innerHTML+=`<option value="${k.nome}">${k.ingredientes ? k.ingredientes.join(', ') : ''}</option>`; }); });
+      unsubscribeEmpresa = db.collection("config").doc("empresa").onSnapshot((doc) => { 
+          if (doc.exists) { 
+              let d = doc.data(); empDados = { nome: d.nome, end: d.end, tel: d.tel }; 
+              if(d.logo) { logoBase64 = d.logo; aplicarLogo(); }
+              if(d.contador) {
+                  let agora = Date.now();
+                  let diff = agora - (d.contador.lastReset || 0);
+                  let dias = diff / (1000 * 60 * 60 * 24);
+                  if(dias >= 30) {
+                       db.collection("config").doc("empresa").update({ contador: { count: 0, lastReset: agora } });
+                  } else {
+                       contadorConfig = d.contador;
+                       document.getElementById('dashContador').innerText = contadorConfig.count;
+                       document.getElementById('numPedido').value = contadorConfig.count + 1;
+                  }
+              }
+          } 
+      });
+  }
+  function pararSincronizacao() { if(unsubscribeClientes) { unsubscribeClientes(); unsubscribeClientes = null; } clientes = []; }
+
+  function buscarCep() {
+      let cep = document.getElementById('cep').value.replace(/\D/g, '');
+      if (cep.length != 8) return Swal.fire('Erro', 'CEP inválido', 'error');
+      document.getElementById('logradouro').value = 'Buscando...';
+      fetch(`https://viacep.com.br/ws/${cep}/json/`)
+      .then(r => r.json())
+      .then(d => {
+          if(d.erro) { document.getElementById('logradouro').value = ''; return Swal.fire('Ops', 'CEP não encontrado', 'warning'); }
+          document.getElementById('logradouro').value = d.logradouro;
+          document.getElementById('bairro').value = d.bairro;
+          document.getElementById('cidade').value = `${d.localidade}/${d.uf}`;
+      })
+      .catch(() => document.getElementById('logradouro').value = '');
+  }
+
+  function addIngredienteTemp() {
+      let ing = document.getElementById('novoIngrediente').value.trim();
+      if(ing) { ingredientesTemp.push(ing); document.getElementById('novoIngrediente').value = ''; renderIngredientesTemp(); }
+  }
+  function renderIngredientesTemp() {
+      let html = ingredientesTemp.map(i => `<span class="ingrediente-tag">${i}</span>`).join(' ');
+      document.getElementById('listaIngredientesTemp').innerHTML = html;
+  }
+  function salvarCatalogo() { 
+      let n=document.getElementById('catNome').value; let v=Number(document.getElementById('catValor').value); 
+      if(n&&v){ db.collection("catalogo").add({ nome:n.toUpperCase(), valor:v, ingredientes: ingredientesTemp }); document.getElementById('catNome').value=''; document.getElementById('catValor').value=''; ingredientesTemp = []; renderIngredientesTemp(); Swal.fire('Salvo','','success'); } 
+  }
+
+  // --- SELEÇÃO DE PRODUTO ---
+  function abrirModalSelecaoProdutos() { document.getElementById('buscaProdutoModal').value = ''; renderProdutosModal(); document.getElementById('modalSelecaoProdutos').style.display = 'flex'; }
+  function renderProdutosModal() {
+      let termo = document.getElementById('buscaProdutoModal').value.toLowerCase();
+      let lista = catalogo.filter(p => p.nome.toLowerCase().includes(termo));
+      let div = document.getElementById('listaProdutosModal'); div.innerHTML = '';
+      if (lista.length === 0) { div.innerHTML = '<p style="color:#aaa; text-align:center;">Nenhum produto encontrado.</p>'; return; }
+      lista.forEach(p => {
+          let ings = p.ingredientes ? p.ingredientes.join(', ') : 'Sem descrição';
+          div.innerHTML += `<div class="produto-item"><div class="produto-info"><div class="produto-nome">${p.nome}</div><div class="produto-ingredientes">${ings}</div><div class="produto-preco">${formatarMoeda(p.valor)}</div></div><button class="btn-add-prod" onclick="selecionarProdutoDoModal('${p.nome}', ${p.valor}, '${ings}')">➕ ADICIONAR</button></div>`;
+      });
+  }
+  function selecionarProdutoDoModal(nome, valor, ingredientes) {
+      document.getElementById('descricao').value = nome;
+      document.getElementById('valorUnitario').value = valor;
+      document.getElementById('displayIngredientes').innerText = ingredientes !== 'Sem descrição' ? "Ingredientes: " + ingredientes : "";
+      calcularTotalPrincipal(); document.getElementById('modalSelecaoProdutos').style.display = 'none';
+  }
+  function preencherValorCatPrincipal(){
+      let t=document.getElementById('descricao').value.toUpperCase(); let a=catalogo.find(c=>c.nome===t); 
+      if(a) { document.getElementById('valorUnitario').value=a.valor; if(a.ingredientes) { document.getElementById('displayIngredientes').innerText = "Ingredientes: " + a.ingredientes.join(', '); } else { document.getElementById('displayIngredientes').innerText = ""; } calcularTotalPrincipal(); }
+  }
+
+  function adicionarCliente(){ 
+      let n = document.getElementById('nome').value.trim(); 
+      if(!n) return Swal.fire('Ops','Nome obrigatório','warning'); 
+      let endCompleto = document.getElementById('logradouro').value;
+      let bairro = document.getElementById('bairro').value;
+      if(bairro) endCompleto += ` - ${bairro}`;
+      if(document.getElementById('complemento').value) endCompleto += ` (${document.getElementById('complemento').value})`;
+      if(document.getElementById('cidade').value) endCompleto += ` - ${document.getElementById('cidade').value}`;
+
+      db.collection("clientes").add({ 
+          nome:n, cpf_cnpj: document.getElementById('cpf_cnpj').value, ie: document.getElementById('ie').value,
+          telefone:document.getElementById('telefone').value, endereco: endCompleto, itens:[] 
+      }); 
+      Swal.fire({icon:'success',title:'Criado!',timer:1000,showConfirmButton:false}); 
+      document.getElementById('nome').value=''; document.getElementById('cpf_cnpj').value=''; document.getElementById('ie').value=''; document.getElementById('telefone').value=''; document.getElementById('cep').value=''; document.getElementById('logradouro').value=''; document.getElementById('bairro').value=''; document.getElementById('complemento').value=''; document.getElementById('cidade').value=''; 
+  }
+  
+  function adicionarAoCarrinho() {
+      let desc = document.getElementById('descricao').value.toUpperCase();
+      let valTotal = Number(document.getElementById('valorTotal').value.replace('R$','').replace('TOTAL','').replace(',','.').trim());
+      if(!valTotal) { let q = Number(document.getElementById('quantidade').value)||1; let u = Number(document.getElementById('valorUnitario').value)||0; valTotal = q * u; } 
+      if(!desc || valTotal <= 0) return Swal.fire('Erro', 'Verifique o produto e valor', 'error');
+
+      let tipo = document.querySelector('input[name="tipoPedido"]:checked').value;
+      let numPed = document.getElementById('numPedido').value || (contadorConfig.count + 1);
+
+      let item = { 
+          desc: desc, qtd: Number(document.getElementById('quantidade').value)||1, valor: valTotal, 
+          data: document.getElementById('dataEntrada').value, pago: false, pagoValor: 0, img: null,
+          tipo: tipo, numPedido: numPed, ingredientes: document.getElementById('displayIngredientes').innerText
+      }; 
+
+      carrinhoCompras.push(item);
+      renderCarrinho();
+      document.getElementById('descricao').value=''; document.getElementById('quantidade').value='1'; document.getElementById('valorTotal').value=''; document.getElementById('valorUnitario').value=''; document.getElementById('displayIngredientes').innerText='';
+  }
+
+  function renderCarrinho() {
+      const tbody = document.getElementById('listaCarrinho'); const area = document.getElementById('carrinhoArea');
+      if(carrinhoCompras.length === 0) { area.style.display = 'none'; return; }
+      area.style.display = 'block'; tbody.innerHTML = ''; let total = 0;
+      carrinhoCompras.forEach((item, index) => {
+          total += item.valor;
+          tbody.innerHTML += `<tr><td>${item.desc} <br><small style="color:#aaa">${item.ingredientes}</small></td><td>${item.qtd}</td><td>${formatarMoeda(item.valor)}</td><td><button class="danger" onclick="removerDoCarrinho(${index})" style="padding:2px 5px; font-size:10px;">X</button></td></tr>`;
+      });
+      document.getElementById('totalCarrinhoDisplay').innerText = formatarMoeda(total);
+  }
+
+  function removerDoCarrinho(index) { carrinhoCompras.splice(index, 1); renderCarrinho(); }
+
+  function concluirPedido() {
+      let id = document.getElementById('clienteSelect').value; 
+      if(!id) return Swal.fire('Ops', 'Selecione um cliente para fechar o pedido', 'warning');
+      if(carrinhoCompras.length === 0) return Swal.fire('Ops', 'O carrinho está vazio', 'warning');
+      
+      db.collection("clientes").doc(id).update({ itens: firebase.firestore.FieldValue.arrayUnion(...carrinhoCompras) }).then(() => {
+          let novoCount = contadorConfig.count + 1;
+          db.collection("config").doc("empresa").update({ "contador.count": novoCount });
+          Swal.fire({icon:'success', title:'Pedido Concluído!', timer:1500, showConfirmButton:false});
+          carrinhoCompras = []; renderCarrinho();
+      }).catch(err => { Swal.fire('Erro', 'Erro ao salvar: ' + err.message, 'error'); });
+  }
+
+  function enviarLinkZap(id, nome, tel) {
+      let link = window.location.href.split('?')[0]; 
+      let msg = `Olá ${nome}, aqui é do Trailer da Naty. Segue o link para conferência e assinatura do seu pedido: ${link}?cliente=${id}`;
+      
+      if(tel) {
+          window.open(`https://wa.me/55${tel.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank');
+      } else {
+          navigator.clipboard.writeText(msg).then(() => {
+              Swal.fire('Link Copiado', 'O cliente não tem telefone cadastrado. O link foi copiado para sua área de transferência.', 'info');
+          });
+      }
+  }
+
+  function render(){
+    let div = document.getElementById('listaClientes'); div.innerHTML = '';
+    let termo = document.getElementById('searchBox').value.toLowerCase();
+    let listaFiltrada = clientes.filter(c => !termo || c.nome.toLowerCase().includes(termo));
+    let itensDaPagina = listaFiltrada.slice((paginaAtual - 1) * itensPorPagina, paginaAtual * itensPorPagina);
+
+    itensDaPagina.forEach((c) => {
+      let saldoCli = c.itens.reduce((acc, i) => acc + (Number(i.valor)||0) - (Number(i.pagoValor)||0), 0);
+      let html = `<div class="client-card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:15px;">
+        <div><div class="client-name">${c.nome}</div><div style="font-size:12px; color:#D7CCC8;">${c.endereco ? '📍 '+c.endereco : ''}</div></div>
+        <div style="text-align:right"><div class="saldo-tag" style="color:${saldoCli > 0 ? '#EF5350' : '#66BB6A'}">${formatarMoeda(saldoCli)}</div></div>
+      </div>
+      
+      <div class="action-buttons">
+        <button class="btn-action act-edit" onclick="editarDadosCliente('${c.id}')"><span>✏️</span>EDITAR</button>
+        <button class="btn-action act-print" onclick="imprimirSelecionados('${c.id}', 'cupom')"><span>🖨️</span>NOTA</button>
+        <button class="btn-action act-share" onclick="compartilharComprovanteImagem('${c.id}')"><span>📤</span>PRINT</button>
+        <button class="btn-action act-pay" onclick="abrirAssinatura('${c.id}')"><span>✍️</span>ASSINAR (LOCAL)</button>
+        <button class="btn-action act-link" onclick="enviarLinkZap('${c.id}', '${c.nome}', '${c.telefone}')"><span>🔗</span>ASSINAR (LINK)</button>
+        <button class="btn-action act-del admin-only" onclick="excluirCliente('${c.id}')"><span>🗑️</span>APAGAR</button>
+      </div>
+
+      <table><tbody>${c.itens.map((i, ii) => {
+          let tipoBadge = i.tipo == 'online' ? '<span class="badge-tipo bg-online">ON</span>' : '<span class="badge-tipo bg-presencial">LOJA</span>';
+          let num = i.numPedido ? `<span style="color:#aaa; font-size:10px;">#${i.numPedido}</span> ` : '';
+          
+          let pg = Number(i.pagoValor) || 0;
+          let val = Number(i.valor) || 0;
+          let resta = val - pg;
+          
+          let sit = i.pago 
+              ? '<span style="color:#66BB6A; font-weight:bold;">PAGO</span>' 
+              : (pg > 0 
+                  ? `<span style="color:#FFCA28; font-weight:bold;">PARCIAL</span><br><span style="font-size:10px; color:#ccc;">Falta: ${formatarMoeda(resta)}</span>` 
+                  : `<span style="color:#EF5350; font-weight:bold;">ABERTO</span>`);
+          
+          return `<tr>
+            <td style="width:30px;"><input type="checkbox" class="sel-${c.id}" value="${ii}" style="width:25px; height:25px;"></td>
+            <td>
+                <div class="item-desc">${i.desc} ${tipoBadge}</div>
+                ${i.ingredientes ? `<div class="item-ingred">${i.ingredientes}</div>` : ''}
+                <div class="item-qtd">${i.qtd}x unidades • ${formatarDataBR(i.data)}</div>
+            </td>
+            <td>
+                <div class="item-val">${formatarMoeda(i.valor)}</div>
+                <div style="font-size:11px;">${sit}</div>
+            </td>
+            <td style="width:110px; text-align:right;">
+                <button class="success btn-item-action" onclick="pagar('${c.id}',${ii})">$</button>
+                <button class="danger btn-item-action admin-only" onclick="excluirLançamento('${c.id}',${ii})">X</button>
+            </td>
+          </tr>`
+      }).join('')}</tbody></table></div>`; div.innerHTML += html;
+    });
+  }
+  function mudarPagina(delta) { paginaAtual += delta; render(); }
+
+  function calcularTotalPrincipal() { let q = Number(document.getElementById('quantidade').value) || 0; let u = Number(document.getElementById('valorUnitario').value) || 0; document.getElementById('valorTotal').value = "TOTAL " + (q * u).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+  function formatarMoeda(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+  function formatarDataBR(i){if(!i)return'';let p=i.split('-');return p.length===3?`${p[2]}/${p[1]}`:i;}
+  function aplicarLogo(){if(logoBase64){document.getElementById('logoLoginDisplay').src = logoBase64;document.body.style.setProperty('--bg-logo', `url(${logoBase64})`);let mini = document.getElementById('logoHeader'); mini.src = logoBase64; mini.style.display='block';}}
+  function atualizarDashboard(){let t=0,r=0;clientes.forEach(c=>c.itens.forEach(i=>{t+=(Number(i.valor)||0);r+=(Number(i.pagoValor)||0)}));document.getElementById('dashTotal').innerText=formatarMoeda(t);document.getElementById('dashRecebido').innerText=formatarMoeda(r);}
+  function atualizarSelect(){let s=document.getElementById('clienteSelect'); let valorAtual = s.value; s.innerHTML='<option value="">Selecione um Cliente...</option>'; clientes.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach((k)=>{ let o=document.createElement('option'); o.value=k.id; o.textContent=k.nome; s.appendChild(o); }); if(valorAtual) s.value = valorAtual; }
+
+  function pagar(id, ii){
+      let c=clientes.find(x=>x.id===id), itens=[...c.itens];
+      let valTotal = Number(itens[ii].valor) || 0;
+      let valPago = Number(itens[ii].pagoValor) || 0;
+      let restante = valTotal - valPago;
+
+      let v = Number(prompt(`VALOR TOTAL: ${formatarMoeda(valTotal)}\nJÁ PAGO: ${formatarMoeda(valPago)}\n\nRESTA A PAGAR: ${formatarMoeda(restante)}\n\nQuanto o cliente está pagando AGORA?`));
+      
+      if(v > 0){
+          itens[ii].pagoValor = valPago + v;
+          if(itens[ii].pagoValor >= itens[ii].valor) itens[ii].pago = true;
+          
+          db.collection("clientes").doc(id).update({itens});
+          Swal.fire({icon:'success', title:'Pagamento Registrado!', timer:1000, showConfirmButton:false});
+      }
+  }
+
+  function excluirLançamento(id,ii){Swal.fire({title:'Apagar?',icon:'warning',showCancelButton:true,confirmButtonColor:'#d33'}).then((r)=>{if(r.isConfirmed){let c=clientes.find(x=>x.id===id),itens=[...c.itens];itens.splice(ii,1);db.collection("clientes").doc(id).update({itens});}});}
+  function excluirCliente(id){Swal.fire({title:'Apagar Cliente?',text:'Irreversível',icon:'warning',showCancelButton:true,confirmButtonColor:'#d33'}).then((r)=>{if(r.isConfirmed)db.collection("clientes").doc(id).delete();});}
+  function editarDadosCliente(id) { let c = clientes.find(x => x.id === id); document.getElementById('editCliId').value = id; document.getElementById('editCliNome').value = c.nome; document.getElementById('editCliTel').value = c.telefone||''; document.getElementById('editCliEnd').value = c.endereco||''; document.getElementById('modalEditarCliente').style.display = 'flex'; }
+  function confirmarEdicaoCliente() { let id = document.getElementById('editCliId').value; let dados = { nome: document.getElementById('editCliNome').value, telefone: document.getElementById('editCliTel').value, endereco: document.getElementById('editCliEnd').value }; db.collection("clientes").doc(id).update(dados).then(() => { Swal.fire('Salvo', '', 'success'); document.getElementById('modalEditarCliente').style.display = 'none'; }); }
+  function salvarDadosEmpresa() { let n=document.getElementById('confEmpNome').value, e=document.getElementById('confEmpEnd').value, t=document.getElementById('confEmpTel').value; db.collection("config").doc("empresa").set({ nome: n, end: e, tel: t }, {merge: true}).then(() => Swal.fire('Salvo!','','success')); }
+  function fazerBackupLocal() { if(!clientes.length)return Swal.fire('Erro','Sem dados','error'); let b=new Blob([JSON.stringify(clientes)],{type:"application/json"}),l=document.createElement("a");l.href=URL.createObjectURL(b);l.download=`backup_naty_${new Date().toISOString().split('T')[0]}.json`;document.body.appendChild(l);l.click();document.body.removeChild(l); }
+  function abrirRestauracao() { document.getElementById('inputBackup').click(); }
+  function processarRestauracao(input) { if (!input.files || !input.files[0]) return; let reader = new FileReader(); reader.onload = async function(e) { let dados = JSON.parse(e.target.result); if (!Array.isArray(dados)) return Swal.fire('Erro', 'Arquivo inválido', 'error'); let batch = db.batch(); let count = 0; dados.forEach(c => { let ref = c.id ? db.collection("clientes").doc(c.id) : db.collection("clientes").doc(); let data = {...c}; delete data.id; batch.set(ref, data, {merge:true}); count++; }); if(count > 0) await batch.commit(); Swal.fire('Sucesso', 'Dados restaurados!', 'success'); }; reader.readAsText(input.files[0]); }
+  function criarUsuario() { const email = document.getElementById('novoUserEmail').value; const senha = document.getElementById('novoUserSenha').value; const nome = document.getElementById('novoUserNome').value; const perfil = document.getElementById('novoUserPerfil').value; if(!email||!senha) return; const tempApp = firebase.initializeApp(firebaseConfig, "Temp"); tempApp.auth().createUserWithEmailAndPassword(email, senha).then((u) => { db.collection("usuarios").doc(u.user.uid).set({ nome, email, perfil }); tempApp.delete(); Swal.fire('Criado!','','success'); document.getElementById('modalUsuario').style.display='none'; }); }
+  function abrirModalUsuario(){ document.getElementById('modalUsuario').style.display='flex'; }
+  document.getElementById('logoInput').addEventListener('change', e => { let file = e.target.files[0]; if (!file) return; let reader = new FileReader(); reader.onload = event => { let img = new Image(); img.onload = () => { let canvas = document.createElement('canvas'); let ctx = canvas.getContext('2d'); let maxWidth = 400; let scale = maxWidth / img.width; if (scale > 1) scale = 1; canvas.width = img.width * scale; canvas.height = img.height * scale; ctx.drawImage(img, 0, 0, canvas.width, canvas.height); let base64 = canvas.toDataURL('image/jpeg', 0.8); db.collection("config").doc("empresa").set({ logo: base64 }, { merge: true }); logoBase64 = base64; localStorage.setItem('logoPastelaria', base64); aplicarLogo(); Swal.fire('Linda!', 'Logo atualizada com sucesso no sistema.', 'success'); }; img.src = event.target.result; }; reader.readAsDataURL(file); });
+
+  function abrirAssinatura(id) { const checks = document.querySelectorAll(`.sel-${id}:checked`); if(checks.length === 0) return Swal.fire('Ops', "Selecione o que será pago", 'info'); signId = id; document.getElementById('assinaturaModal').style.display = 'flex'; const cvs = document.getElementById('canvasAssinatura'); cvs.width = cvs.parentElement.offsetWidth; cvs.height = 150; const ctx = cvs.getContext('2d'); ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.clearRect(0,0,cvs.width,cvs.height); setupCanvasEvents(cvs); }
+  function limparAssinatura() { let cvs = document.getElementById('canvasAssinatura'); let ctx = cvs.getContext('2d'); ctx.clearRect(0,0,cvs.width,cvs.height); }
+  function fecharAssinatura() { document.getElementById('assinaturaModal').style.display = 'none'; signId = null; }
+  function finalizarAssinatura(tipo) { let img = document.getElementById('canvasAssinatura').toDataURL(); let salvar = document.getElementById('salvarAssinaturaCheck').checked; if (salvar && signId) { let c = clientes.find(x => x.id === signId); let itens = [...c.itens]; let checks = document.querySelectorAll(`.sel-${signId}:checked`); checks.forEach(cb => { let idx = parseInt(cb.value); if(itens[idx]) itens[idx].assinatura = img; }); db.collection("clientes").doc(signId).update({ itens }); } imprimirSelecionados(signId, tipo, img); fecharAssinatura(); }
+  function imprimirSelecionados(id, tipo, imgAss = null) {
+      const c = clientes.find(x => x.id === id); const checks = document.querySelectorAll(`.sel-${id}:checked`); const indices = Array.from(checks).map(cb => parseInt(cb.value)); if (indices.length === 0) return Swal.fire('Selecione itens', '', 'info'); const selecionados = indices.map(idx => c.itens[idx]);
+      let html = `<div style="text-align:center; font-family: 'Courier New', monospace; width: 72mm; margin: 0 auto;">
+        ${logoBase64 ? `<img src="${logoBase64}" style="width:70px; border-radius:50%; margin-bottom:10px;">` : ''}
+        <h3 style="margin:5px 0; color:#000;">${empDados.nome}</h3><p style="font-size:12px; margin:0; color:#000;">${empDados.end}<br>${empDados.tel}</p>
+        <hr style="border-top: 1px dashed #000;"><p style="text-align:left; font-size:12px; color:#000;"><b>CLIENTE:</b> ${c.nome}<br>${c.endereco ? 'End: '+c.endereco : ''}</p>
+        <table style="width:100%; font-size:12px; border-collapse:collapse; color:#000;">
+            <tr>
+                <th style="text-align:left; color:#000;">ITEM</th>
+                <th style="text-align:center; color:#000;">QTD</th>
+                <th style="text-align:right; color:#000;">VALOR</th>
+            </tr>
+            ${selecionados.map(i => `<tr>
+                <td style="text-align:left; border-bottom:1px dashed #000; font-weight:bold; color:#000;">${i.desc}</td>
+                <td style="text-align:center; border-bottom:1px dashed #000; font-weight:bold; color:#000;">${i.qtd}</td>
+                <td style="text-align:right; border-bottom:1px dashed #000; font-weight:bold; color:#000;">${formatarMoeda(i.valor)}</td>
+            </tr>`).join('')}
+        </table><br><div style="text-align:right; font-weight:bold; font-size:16px; color:#000;">TOTAL: ${formatarMoeda(selecionados.reduce((a,i)=>a+i.valor,0))}</div>
+        ${imgAss ? `<div style="margin-top:15px;"><img src="${imgAss}" style="max-height:50px;"><br>Assinado</div>` : ''}
+        <br><small style="color:#000; font-weight:bold;">Obrigado pela preferência! Volte Sempre!</small></div>`;
+      document.getElementById('printContent').innerHTML = html; document.getElementById('printOverlay').style.display = 'block'; setTimeout(() => window.print(), 500);
+  }
+  function fecharImpressao() { document.getElementById('printOverlay').style.display = 'none'; }
+  function compartilharComprovanteImagem(id) {
+    if(!empDados.nome) return Swal.fire('Configure o nome','','info');
+    let c = clientes.find(x=>x.id===id);
+    let area = document.getElementById('hiddenPrintArea');
+    area.innerHTML = `<div style="padding:20px; background:#fff; width:400px; text-align:center; font-family:sans-serif; border:1px solid #ccc;">
+        ${logoBase64 ? `<img src="${logoBase64}" style="width:100px; border-radius:50%; margin-bottom:10px;">` : ''}
+        <h2 style="color:#3E2723">${empDados.nome}</h2><p>${empDados.tel}</p>
+        <div style="text-align:left; border-top:2px solid #8D6E63; padding-top:10px; margin-top:10px;">
+            <b>Cliente:</b> ${c.nome}<br><b>Saldo Devedor:</b> <span style="font-size:22px; font-weight:bold; color:#EF5350;">${formatarMoeda(c.itens.reduce((a,i)=>a+(i.valor-i.pagoValor),0))}</span>
+        </div><p style="margin-top:20px; font-size:12px; color:#aaa;">Trailer da Naty - Sistema</p></div>`;
+    html2canvas(area).then(canvas => { canvas.toBlob(blob => { const file = new File([blob], "comprovante.jpg", {type: "image/jpeg"}); if(navigator.share) { navigator.share({ files: [file], title: 'Comprovante', text: `Olá ${c.nome}, seu pedido.` }); } else { Swal.fire({title:'Imagem gerada', imageUrl: canvas.toDataURL(), imageWidth:300, text: 'Salve a imagem para enviar'}); } area.innerHTML=''; }); });
+  }
+
+</script>
+</body>
+</html>
