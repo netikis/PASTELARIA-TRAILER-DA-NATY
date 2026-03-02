@@ -173,7 +173,7 @@
   .client-name { font-size: 18px; font-weight: 700; color: #FFCCBC; }
   .saldo-tag { background: #2D1B15; padding: 5px 10px; border-radius: 8px; font-weight: bold; }
 
-  /* --- AÇÕES GRANDES (BOTÕES DO CARD) --- */
+  /* --- AÇÕES GRANDES --- */
   .action-buttons {
       display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 15px;
       padding: 8px; background: rgba(0,0,0,0.2); border-radius: 10px;
@@ -209,7 +209,7 @@
   .carrinho-table th { background: #3E2723; color: var(--accent); padding: 8px; font-size: 12px; text-align: left; }
   .carrinho-table td { padding: 8px; border-bottom: 1px solid #444; color: #fff; font-size: 13px; }
 
-  /* LISTA DE PRODUTOS MODAL */
+  /* LISTA MODAL */
   .produto-item { display: flex; justify-content: space-between; align-items: center; background: #2D1B15; padding: 15px; margin-bottom: 10px; border-radius: 10px; border: 1px solid #5D4037; }
   .produto-info { flex: 1; }
   .produto-nome { font-weight: bold; font-size: 16px; color: #fff; }
@@ -226,13 +226,14 @@
   .modal { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 99999 !important; backdrop-filter: blur(5px); }
   .modal-content { background: #3E2723; border: 2px solid var(--accent); width: 90%; max-width: 500px; max-height: 85vh; overflow-y: auto; padding: 20px; border-radius: 15px; box-shadow: 0 0 50px rgba(0,0,0,0.8); }
 
-  /* --- IMPRESSÃO --- */
-  #printOverlay { display: none; background: #fff; color: #000 !important; z-index: 100000; }
+  /* --- IMPRESSÃO (CORRIGIDO PARA SUMIR O OVERLAY) --- */
+  #printOverlay { display: none !important; background: #fff; color: #000 !important; z-index: 100000; position: fixed; top: 0; left: 0; width: 100%; height: 100%; }
+  
   @media print {
     @page { margin: 0; size: auto; }
     body, html { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; overflow: hidden !important; height: 100% !important; }
     body > *:not(#printOverlay) { display: none !important; }
-    #printOverlay { display: block !important; position: fixed !important; top: 0; left: 0; width: 100%; height: 100%; background: #fff; z-index: 999999; padding-top: 5mm; }
+    #printOverlay { display: block !important; background: #fff; z-index: 999999; padding-top: 5mm; }
     .print-controls { display: none !important; }
   }
   
@@ -267,11 +268,9 @@
         <form onsubmit="event.preventDefault(); fazerLogin();">
             <input type="email" id="emailInput" placeholder="E-mail" required style="margin-bottom:10px; text-align:center;">
             <input type="password" id="senhaInput" placeholder="Senha" required style="margin-bottom:20px; text-align:center;">
-            
             <div style="margin-bottom:15px; display:flex; align-items:center; justify-content:center; gap:5px; font-size:12px; color:#aaa;">
                 <input type="checkbox" id="chkLembrarEmail" style="width:auto; margin:0;"> Lembrar E-mail
             </div>
-
             <button type="submit" class="success" id="btnLogin" style="width: 100%; padding: 15px;">ENTRAR</button>
         </form>
         <div id="msgLogin" style="color: #ff5252; margin-top: 15px; font-size: 12px;"></div>
@@ -311,7 +310,7 @@
         
         <h4 style="color:#FFCA28; margin-top:15px;">🖼️ Logo do Sistema</h4>
         <div style="background:#2D1B15; padding:10px; border-radius:10px; font-size:11px; color:#aaa; margin-bottom:10px;">
-            A logo será salva na nuvem e redimensionada automaticamente.
+            A logo será salva na nuvem. Selecione uma imagem para atualizar e salvar para sempre.
         </div>
         <input type="file" id="logoInput" accept="image/*" style="margin-bottom:10px;">
         <button class="primary" onclick="salvarDadosEmpresa()" style="width:100%;">💾 SALVAR DADOS</button>
@@ -427,7 +426,7 @@
   </div>
 
   <div style="margin-top:20px;">
-    <input type="text" id="searchBox" class="search-box admin-only" placeholder="🔍 Buscar Cliente..." onkeyup="render()" autocomplete="off">
+    <input type="text" id="searchBox" class="search-box admin-only" name="search_system_app_naty" autocomplete="off" placeholder="🔍 Buscar Cliente..." onkeyup="render()">
     <div id="listaClientes">Carregando...</div>
     <div class="pagination" id="paginacaoControles" style="display:flex; justify-content:center; gap:10px; margin-top:20px;">
         <button class="dark" id="btnAnt" onclick="mudarPagina(-1)">⬅</button>
@@ -525,17 +524,6 @@
       $('#telefone, #editCliTel').mask('(00) 00000-0000'); $('#cep').mask('00000-000'); $('#cpf_cnpj').mask('000.000.000-00', {onKeyPress: function(val, e, field, options) { field.mask(val.length > 14 ? '00.000.000/0000-00' : '000.000.000-000'); }});
       document.getElementById('dataEntrada').value = new Date().toISOString().split('T')[0];
       const savedEmail = localStorage.getItem('naty_saved_email'); if(savedEmail) { document.getElementById('emailInput').value = savedEmail; document.getElementById('chkLembrarEmail').checked = true; }
-      
-      // Carregar dados da empresa do LocalStorage imediatamente
-      const savedEmpData = JSON.parse(localStorage.getItem('naty_emp_data'));
-      if(savedEmpData) {
-          empDados = savedEmpData;
-          if(document.getElementById('confEmpNome')) {
-              document.getElementById('confEmpNome').value = empDados.nome;
-              document.getElementById('confEmpEnd').value = empDados.end;
-              document.getElementById('confEmpTel').value = empDados.tel;
-          }
-      }
       aplicarLogo(); 
   });
 
@@ -554,27 +542,7 @@
       if(unsubscribeClientes) return; 
       unsubscribeClientes = db.collection("clientes").orderBy("nome").onSnapshot((snapshot) => { clientes = []; snapshot.forEach((doc) => { clientes.push({ id: doc.id, ...doc.data() }); }); atualizarSelect(); atualizarDashboard(); render(); });
       unsubscribeCatalogo = db.collection("catalogo").onSnapshot((s)=>{ catalogo=[]; let d=document.getElementById('opcoesCatalogo'); if(!d) return; d.innerHTML=''; s.forEach((doc)=>{ let k=doc.data(); catalogo.push({id:doc.id,...k}); d.innerHTML+=`<option value="${k.nome}">${k.ingredientes ? k.ingredientes.join(', ') : ''}</option>`; }); });
-      unsubscribeEmpresa = db.collection("config").doc("empresa").onSnapshot((doc) => { 
-          if (doc.exists) { 
-              let d = doc.data(); 
-              empDados = { nome: d.nome, end: d.end, tel: d.tel }; 
-              // Atualiza localStorage para backup
-              localStorage.setItem('naty_emp_data', JSON.stringify(empDados));
-              
-              if(document.getElementById('confEmpNome')) {
-                  document.getElementById('confEmpNome').value = empDados.nome;
-                  document.getElementById('confEmpEnd').value = empDados.end;
-                  document.getElementById('confEmpTel').value = empDados.tel;
-              }
-              if(d.logo) { logoBase64 = d.logo; aplicarLogo(); }
-              if(d.contador) {
-                  let agora = Date.now();
-                  let diff = agora - (d.contador.lastReset || 0);
-                  let dias = diff / (1000 * 60 * 60 * 24);
-                  if(dias >= 30) { db.collection("config").doc("empresa").update({ contador: { count: 0, lastReset: agora } }); } else { contadorConfig = d.contador; document.getElementById('dashContador').innerText = contadorConfig.count; document.getElementById('numPedido').value = contadorConfig.count + 1; }
-              }
-          } 
-      });
+      unsubscribeEmpresa = db.collection("config").doc("empresa").onSnapshot((doc) => { if (doc.exists) { let d = doc.data(); empDados = { nome: d.nome, end: d.end, tel: d.tel }; if(document.getElementById('confEmpNome')) { document.getElementById('confEmpNome').value = empDados.nome; document.getElementById('confEmpEnd').value = empDados.end; document.getElementById('confEmpTel').value = empDados.tel; } if(d.logo) { logoBase64 = d.logo; localStorage.setItem('logoPastelaria', d.logo); aplicarLogo(); } if(d.contador) { let agora = Date.now(); let diff = agora - (d.contador.lastReset || 0); let dias = diff / (1000 * 60 * 60 * 24); if(dias >= 30) { db.collection("config").doc("empresa").update({ contador: { count: 0, lastReset: agora } }); } else { contadorConfig = d.contador; document.getElementById('dashContador').innerText = contadorConfig.count; document.getElementById('numPedido').value = contadorConfig.count + 1; } } } });
   }
   function pararSincronizacao() { if(unsubscribeClientes) { unsubscribeClientes(); unsubscribeClientes = null; } clientes = []; }
 
@@ -639,8 +607,7 @@
           let pg = Number(i.pagoValor) || 0; let val = Number(i.valor) || 0; let resta = val - pg;
           let sit = i.pago ? '<span style="color:#66BB6A; font-weight:bold;">PAGO</span>' : (pg > 0 ? `<span style="color:#FFCA28; font-weight:bold;">PARCIAL</span>` : `<span style="color:#EF5350; font-weight:bold;">ABERTO</span>`);
           
-          // CORREÇÃO: AUMENTAR TAMANHO DO PAGAMENTO PARCIAL
-          let infoPagamento = pg > 0 && !i.pago ? `<div style="font-size:13px; font-weight:bold; margin-top:2px; color:#66BB6A;">Pago: ${formatarMoeda(pg)}</div><div style="font-size:13px; font-weight:bold; color:#EF5350;">Resta: ${formatarMoeda(resta)}</div>` : '';
+          let infoPagamento = pg > 0 && !i.pago ? `<div style="font-size:16px; font-weight:900; margin-top:3px; color:#66BB6A;">Pago: ${formatarMoeda(pg)}</div><div style="font-size:16px; font-weight:900; color:#EF5350;">Resta: ${formatarMoeda(resta)}</div>` : '';
           
           return `<tr><td style="width:30px;"><input type="checkbox" class="sel-${c.id}" value="${ii}" style="width:25px; height:25px;"></td>
             <td><div class="item-desc">${i.desc} ${tipoBadge}</div>${i.ingredientes ? `<div class="item-ingred">${i.ingredientes}</div>` : ''}<div class="item-qtd">${i.qtd}x unidades • ${formatarDataBR(i.data)}</div></td>
@@ -657,7 +624,6 @@
   function atualizarDashboard(){let t=0,r=0;clientes.forEach(c=>c.itens.forEach(i=>{t+=(Number(i.valor)||0);r+=(Number(i.pagoValor)||0)}));document.getElementById('dashTotal').innerText=formatarMoeda(t);document.getElementById('dashRecebido').innerText=formatarMoeda(r);}
   function atualizarSelect(){let s=document.getElementById('clienteSelect'); let valorAtual = s.value; s.innerHTML='<option value="">Selecione um Cliente...</option>'; clientes.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach((k)=>{ let o=document.createElement('option'); o.value=k.id; o.textContent=k.nome; s.appendChild(o); }); if(valorAtual) s.value = valorAtual; }
 
-  // --- CORREÇÃO DO PAGAMENTO COM VÍRGULA E SALVAMENTO LOCAL ---
   function pagar(id, ii){
       let c=clientes.find(x=>x.id===id), itens=[...c.itens];
       let valTotal = Number(itens[ii].valor) || 0;
@@ -667,7 +633,6 @@
       let input = prompt(`VALOR TOTAL: ${formatarMoeda(valTotal)}\nJÁ PAGO: ${formatarMoeda(valPago)}\n\nRESTA A PAGAR: ${formatarMoeda(restante)}\n\nQuanto o cliente está pagando AGORA?`);
       
       if(input) {
-          // Substitui vírgula por ponto para o JS entender
           let v = Number(input.replace(',', '.'));
           
           if(v > 0){
@@ -692,12 +657,7 @@
       let e=document.getElementById('confEmpEnd').value;
       let t=document.getElementById('confEmpTel').value;
       
-      // Salvar no Firebase
       db.collection("config").doc("empresa").set({ nome: n, end: e, tel: t }, {merge: true}).then(() => Swal.fire('Salvo!','','success'));
-      
-      // Salvar na memória local (LocalStorage)
-      empDados = { nome: n, end: e, tel: t };
-      localStorage.setItem('naty_emp_data', JSON.stringify(empDados));
   }
   
   function fazerBackupLocal() { if(!clientes.length)return Swal.fire('Erro','Sem dados','error'); let b=new Blob([JSON.stringify(clientes)],{type:"application/json"}),l=document.createElement("a");l.href=URL.createObjectURL(b);l.download=`backup_naty_${new Date().toISOString().split('T')[0]}.json`;document.body.appendChild(l);l.click();document.body.removeChild(l); }
@@ -705,14 +665,77 @@
   function processarRestauracao(input) { if (!input.files || !input.files[0]) return; let reader = new FileReader(); reader.onload = async function(e) { let dados = JSON.parse(e.target.result); if (!Array.isArray(dados)) return Swal.fire('Erro', 'Arquivo inválido', 'error'); let batch = db.batch(); let count = 0; dados.forEach(c => { let ref = c.id ? db.collection("clientes").doc(c.id) : db.collection("clientes").doc(); let data = {...c}; delete data.id; batch.set(ref, data, {merge:true}); count++; }); if(count > 0) await batch.commit(); Swal.fire('Sucesso', 'Dados restaurados!', 'success'); }; reader.readAsText(input.files[0]); }
   function criarUsuario() { const email = document.getElementById('novoUserEmail').value; const senha = document.getElementById('novoUserSenha').value; const nome = document.getElementById('novoUserNome').value; const perfil = document.getElementById('novoUserPerfil').value; if(!email||!senha) return; const tempApp = firebase.initializeApp(firebaseConfig, "Temp"); tempApp.auth().createUserWithEmailAndPassword(email, senha).then((u) => { db.collection("usuarios").doc(u.user.uid).set({ nome, email, perfil }); tempApp.delete(); Swal.fire('Criado!','','success'); document.getElementById('modalUsuario').style.display='none'; }); }
   function abrirModalUsuario(){ document.getElementById('modalUsuario').style.display='flex'; }
-  document.getElementById('logoInput').addEventListener('change', e => { let file = e.target.files[0]; if (!file) return; let reader = new FileReader(); reader.onload = event => { let img = new Image(); img.onload = () => { let canvas = document.createElement('canvas'); let ctx = canvas.getContext('2d'); let maxWidth = 400; let scale = maxWidth / img.width; if (scale > 1) scale = 1; canvas.width = img.width * scale; canvas.height = img.height * scale; ctx.drawImage(img, 0, 0, canvas.width, canvas.height); let base64 = canvas.toDataURL('image/jpeg', 0.8); db.collection("config").doc("empresa").set({ logo: base64 }, { merge: true }); logoBase64 = base64; localStorage.setItem('logoPastelaria', base64); aplicarLogo(); Swal.fire('Linda!', 'Logo atualizada com sucesso no sistema.', 'success'); }; img.src = event.target.result; }; reader.readAsDataURL(file); });
+  document.getElementById('logoInput').addEventListener('change', e => { 
+      let file = e.target.files[0]; 
+      if (!file) return; 
+      
+      Swal.fire({
+          title: 'Processando Logo...',
+          text: 'Redimensionando para salvar na nuvem.',
+          allowOutsideClick: false,
+          didOpen: () => Swal.showLoading()
+      });
+
+      let reader = new FileReader(); 
+      reader.onload = event => { 
+          let img = new Image(); 
+          img.onload = () => { 
+              let canvas = document.createElement('canvas'); 
+              let ctx = canvas.getContext('2d'); 
+              let maxWidth = 300; 
+              let scale = maxWidth / img.width; 
+              if (scale > 1) scale = 1; 
+              
+              canvas.width = img.width * scale; 
+              canvas.height = img.height * scale; 
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height); 
+              let base64 = canvas.toDataURL('image/jpeg', 0.7); 
+              
+              db.collection("config").doc("empresa").set({ logo: base64 }, { merge: true })
+              .then(() => {
+                  logoBase64 = base64; 
+                  localStorage.setItem('logoPastelaria', base64); 
+                  aplicarLogo(); 
+                  Swal.fire('Sucesso!', 'Logo salva na nuvem. Ela aparecerá em todos os dispositivos.', 'success'); 
+              })
+              .catch(error => {
+                  console.error(error);
+                  Swal.fire('Erro', 'A imagem ainda é muito grande. Tente uma menor.', 'error');
+              });
+          }; 
+          img.src = event.target.result; 
+      }; 
+      reader.readAsDataURL(file); 
+  });
 
   function abrirAssinatura(id) { const checks = document.querySelectorAll(`.sel-${id}:checked`); if(checks.length === 0) return Swal.fire('Ops', "Selecione o que será pago", 'info'); signId = id; document.getElementById('assinaturaModal').style.display = 'flex'; const cvs = document.getElementById('canvasAssinatura'); cvs.width = cvs.parentElement.offsetWidth; cvs.height = 150; const ctx = cvs.getContext('2d'); ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.clearRect(0,0,cvs.width,cvs.height); setupCanvasEvents(cvs); }
   function limparAssinatura() { let cvs = document.getElementById('canvasAssinatura'); let ctx = cvs.getContext('2d'); ctx.clearRect(0,0,cvs.width,cvs.height); }
   function fecharAssinatura() { document.getElementById('assinaturaModal').style.display = 'none'; signId = null; }
-  function finalizarAssinatura(tipo) { let img = document.getElementById('canvasAssinatura').toDataURL(); let salvar = document.getElementById('salvarAssinaturaCheck').checked; if (salvar && signId) { let c = clientes.find(x => x.id === signId); let itens = [...c.itens]; let checks = document.querySelectorAll(`.sel-${signId}:checked`); checks.forEach(cb => { let idx = parseInt(cb.value); if(itens[idx]) itens[idx].assinatura = img; }); db.collection("clientes").doc(signId).update({ itens }); } imprimirSelecionados(signId, tipo, img); fecharAssinatura(); }
+  
+  function finalizarAssinatura(tipo) { 
+    let img = document.getElementById('canvasAssinatura').toDataURL(); 
+    let salvar = document.getElementById('salvarAssinaturaCheck').checked; 
+    
+    if (salvar && signId) { 
+        let c = clientes.find(x => x.id === signId); 
+        let itens = [...c.itens]; 
+        let checks = document.querySelectorAll(`.sel-${signId}:checked`); 
+        checks.forEach(cb => { 
+            let idx = parseInt(cb.value); 
+            if(itens[idx]) itens[idx].assinatura = img; 
+        }); 
+        db.collection("clientes").doc(signId).update({ itens }); 
+    } 
+    imprimirSelecionados(signId, tipo, img); 
+    fecharAssinatura(); 
+  }
+
   function imprimirSelecionados(id, tipo, imgAss = null) {
-      const c = clientes.find(x => x.id === id); const checks = document.querySelectorAll(`.sel-${id}:checked`); const indices = Array.from(checks).map(cb => parseInt(cb.value)); if (indices.length === 0) return Swal.fire('Selecione itens', '', 'info'); const selecionados = indices.map(idx => c.itens[idx]);
+      const c = clientes.find(x => x.id === id); 
+      const checks = document.querySelectorAll(`.sel-${id}:checked`); 
+      const indices = Array.from(checks).map(cb => parseInt(cb.value)); 
+      if (indices.length === 0) return Swal.fire('Selecione itens', '', 'info'); 
+      const selecionados = indices.map(idx => c.itens[idx]);
       let html = `<div style="text-align:center; font-family: 'Courier New', monospace; width: 72mm; margin: 0 auto;">
         ${logoBase64 ? `<img src="${logoBase64}" style="width:70px; border-radius:50%; margin-bottom:10px;">` : ''}
         <h3 style="margin:5px 0; color:#000;">${empDados.nome}</h3><p style="font-size:12px; margin:0; color:#000;">${empDados.end}<br>${empDados.tel}</p>
@@ -731,9 +754,16 @@
         </table><br><div style="text-align:right; font-weight:bold; font-size:16px; color:#000;">TOTAL: ${formatarMoeda(selecionados.reduce((a,i)=>a+i.valor,0))}</div>
         ${imgAss ? `<div style="margin-top:15px;"><img src="${imgAss}" style="max-height:50px;"><br>Assinado</div>` : ''}
         <br><small style="color:#000; font-weight:bold;">Obrigado pela preferência! Volte Sempre!</small></div>`;
-      document.getElementById('printContent').innerHTML = html; document.getElementById('printOverlay').style.display = 'block'; setTimeout(() => window.print(), 500);
+      document.getElementById('printContent').innerHTML = html; 
+      document.getElementById('printOverlay').style.display = 'block'; 
+      setTimeout(() => window.print(), 500);
   }
-  function fecharImpressao() { document.getElementById('printOverlay').style.display = 'none'; }
+
+  function fecharImpressao() { 
+    document.getElementById('printOverlay').style.display = 'none'; 
+    document.getElementById('printContent').innerHTML = '';
+  }
+
   function compartilharComprovanteImagem(id) {
     if(!empDados.nome) return Swal.fire('Configure o nome','','info');
     let c = clientes.find(x=>x.id===id);
