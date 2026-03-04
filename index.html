@@ -29,15 +29,20 @@
 
   /* --- MODO COZINHA (KDS) --- */
   body.mode-kds .container > *:not(#painelKDS) { display: none !important; }
-  body.mode-kds .header { display: none !important; }
-  body.mode-kds #painelKDS { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; padding: 15px; padding-top: 80px; }
+  body.mode-kds #painelKDS { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 15px; padding: 15px; padding-top: 20px; }
   
-  #btnSairKDS { 
+  /* Se for Admin visualizando a cozinha, mostra botão de voltar */
+  .btn-sair-kds { 
       position: fixed; top: 15px; right: 15px; z-index: 9999999; 
       background: #EF5350; color: white; border: 2px solid #fff; 
-      padding: 15px 25px; border-radius: 30px; font-weight: 900; font-size: 16px;
+      padding: 10px 20px; border-radius: 30px; font-weight: 900; font-size: 14px;
       box-shadow: 0 5px 15px rgba(0,0,0,0.8); cursor: pointer; display: none;
   }
+
+  /* Se o usuário for COZINHA (func), esconde coisas de admin */
+  body.role-func .admin-only { display: none !important; }
+  body.role-func .btn-kds-toggle { display: none !important; }
+  body.role-func #btnSairKDS { display: none !important; } /* Cozinha não pode sair da cozinha */
 
   /* --- UI GERAL --- */
   .container { max-width: 1000px; margin: 0 auto; padding: 15px; }
@@ -46,14 +51,10 @@
 
   /* INPUTS */
   .row-inputs { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
-  input, select { 
-      flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #6D4C41; 
-      background: #2D1B15; color: #FFF; font-family: 'Poppins'; font-size: 14px; 
-      width: 100%; box-sizing: border-box; 
-  }
+  input, select { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #6D4C41; background: #2D1B15; color: #FFF; font-family: 'Poppins'; font-size: 14px; width: 100%; box-sizing: border-box; }
   input:focus { outline: none; border-color: var(--accent); }
 
-  /* RADIOS (PRESENCIAL/ONLINE) ALINHADOS */
+  /* RADIOS ALINHADOS */
   .radio-group { display: flex; gap: 15px; align-items: center; }
   .radio-group label { display: flex; align-items: center; gap: 5px; cursor: pointer; color: #fff; font-size: 15px; font-weight:bold; }
   .radio-group input[type="radio"] { width: 20px; height: 20px; margin: 0; accent-color: var(--accent); cursor: pointer; }
@@ -75,10 +76,7 @@
   .saldo-tag { background: #2D1B15; padding: 5px 10px; border-radius: 8px; font-weight: bold; font-size:16px; }
   
   .action-buttons { display: flex; gap: 8px; margin-bottom: 12px; overflow-x: auto; padding-bottom: 5px; }
-  .btn-action { 
-      flex: 1; min-width: 65px; display: flex; flex-direction: column; align-items: center; justify-content: center; 
-      padding: 8px 4px; font-size: 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-weight:bold;
-  }
+  .btn-action { flex: 1; min-width: 65px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 8px 4px; font-size: 10px; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; font-weight:bold; }
   .btn-action span { font-size: 18px; margin-bottom: 4px; display: block; }
   
   /* TABELA */
@@ -86,12 +84,14 @@
   td { background: #3E2723; padding: 12px; font-size: 14px; color: #D7CCC8; vertical-align: middle; }
   td:first-child { border-radius: 8px 0 0 8px; } td:last-child { border-radius: 0 8px 8px 0; text-align: right; }
   .item-desc { font-size: 18px; font-weight: 900; color: #fff; display: block; margin-bottom: 2px; }
-  .item-ingred { font-size: 12px; color: #aaa; font-style: italic; }
+  .item-ingred { font-size: 12px; color: #aaa; font-style: italic; margin-bottom: 5px; }
   .item-val { font-size: 16px; font-weight: bold; color: var(--success); }
   .btn-item-action { padding: 10px 15px !important; font-size: 16px !important; font-weight: 900 !important; margin-left: 5px; border-radius: 8px; }
 
-  /* KDS CARD */
-  .kds-card { background: #fff; color: #000; padding: 15px; border-radius: 10px; border-top: 5px solid #FFCA28; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+  /* KDS CARD AGRUPADO */
+  .kds-card { background: #fff; color: #000; padding: 15px; border-radius: 12px; border-top: 6px solid #FFCA28; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+  .kds-item-row { border-bottom: 1px dashed #ccc; padding: 8px 0; }
+  .kds-item-row:last-child { border-bottom: none; }
 
   /* MODAL */
   .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 99999; }
@@ -111,7 +111,6 @@
   #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, #4E342E 0%, #1a0f08 100%); z-index: 1000000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .login-box { background: rgba(62, 39, 35, 0.95); padding: 30px; border-radius: 30px; border: 2px solid var(--accent); width: 85%; max-width: 320px; text-align: center; }
 
-  body.role-func .admin-only { display: none !important; }
   .tab-btn { flex: 1; padding: 12px; background: #2D1B15; border: 1px solid #5D4037; color: #aaa; cursor: pointer; text-align:center; font-weight:bold; }
   .tab-btn.active { background: var(--accent); color: #3E2723; border-color:var(--accent); }
   
@@ -122,13 +121,13 @@
 </head>
 <body>
 
-<button id="btnSairKDS" onclick="toggleKDS()">❌ SAIR DA COZINHA</button>
+<button id="btnSairKDS" class="btn-sair-kds" onclick="toggleKDS()">❌ SAIR DA COZINHA</button>
 
 <div id="printOverlay">
     <div class="print-controls" style="position:fixed; top:20px; right:20px; z-index:10000000;">
-        <button class="danger" onclick="fecharImpressao()" style="padding:15px 30px; font-size:16px; box-shadow:0 5px 15px rgba(0,0,0,0.5); font-weight:900;">❌ FECHAR E VOLTAR</button>
+        <button class="danger" onclick="fecharImpressao()" style="padding:15px 30px; font-size:16px; box-shadow:0 5px 15px rgba(0,0,0,0.5); font-weight:900;">❌ FECHAR IMPRESSÃO</button>
     </div>
-    <div id="printContent" style="width:100%; padding-top:30px;"></div>
+    <div id="printContent" style="width:100%; display:flex; justify-content:center; padding-top:30px;"></div>
 </div>
 
 <div id="loginOverlay">
@@ -137,8 +136,8 @@
     <h2 class="titulo" style="font-size:32px; margin-bottom:5px;">Trailer da Naty</h2>
     
     <div id="step-1" style="margin-top:20px;">
-        <button class="primary" onclick="selecionarPerfil('admin')" style="width:100%; margin-bottom:10px; padding:15px;">🛡️ GERÊNCIA</button>
-        <button class="dark" onclick="selecionarPerfil('func')" style="width:100%; padding:15px;">📝 ATENDIMENTO</button>
+        <button class="primary" onclick="selecionarPerfil('admin')" style="width:100%; margin-bottom:10px; padding:15px;">🛡️ GERÊNCIA (ADMIN)</button>
+        <button class="dark" onclick="selecionarPerfil('func')" style="width:100%; padding:15px;">👨‍🍳 COZINHA</button>
     </div>
     <div id="step-2" style="display:none; margin-top:20px;">
         <form onsubmit="event.preventDefault(); fazerLogin();">
@@ -156,7 +155,7 @@
 </div>
 
 <header class="header">
-  <button class="warning" onclick="toggleKDS()" style="font-size:11px; padding:8px 12px;">👨‍🍳 COZINHA</button>
+  <button class="warning btn-kds-toggle admin-only" onclick="toggleKDS()" style="font-size:11px; padding:8px 12px;">👨‍🍳 VER COZINHA</button>
   <div class="header-center">
     <img id="logoHeader" src="" class="logo-header-img">
     <div class="titulo">Trailer da Naty</div>
@@ -246,8 +245,8 @@
     
     <div style="background:#2D1B15; padding:12px; border-radius:10px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; border:1px solid #5D4037;">
         <div class="radio-group">
-            <label><input type="radio" name="tipoPedido" value="presencial" checked> Presencial</label>
-            <label><input type="radio" name="tipoPedido" value="online"> Online</label>
+            <label><input type="radio" name="tipoPedido" value="presencial" checked style="width:18px; height:18px; margin:0; accent-color:var(--accent);"> Presencial</label>
+            <label><input type="radio" name="tipoPedido" value="online" style="width:18px; height:18px; margin:0; accent-color:var(--accent);"> Online</label>
         </div>
         
         <div style="display:flex; align-items:center; gap:5px;">
@@ -391,7 +390,7 @@
   let payRef = null;
   let caixaTotal = []; 
 
-  // ================= INICIALIZAÇÃO E CORREÇÃO DE LOGIN (SESSÃO) =================
+  // ================= INICIALIZAÇÃO =================
   $(document).ready(function(){
       $('#telefone').mask('(00) 00000-0000');
       $('#cep').mask('00000-000');
@@ -413,13 +412,22 @@
       }
   });
 
-  // CORREÇÃO: Força a persistência a ser SESSION (desloga ao fechar o navegador)
+  // LOGOUT NA SESSÃO PARA COZINHA E ADMIN
   auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).then(() => {
       auth.onAuthStateChanged((user) => {
           if (user) {
               db.collection("usuarios").doc(user.uid).get().then((doc) => {
                   let role = (doc.exists) ? doc.data().perfil : 'admin';
-                  document.body.classList.toggle('role-func', role !== 'admin');
+                  
+                  // Se for Cozinha, força o modo KDS direto
+                  if(role === 'func') {
+                      document.body.classList.add('role-func');
+                      document.body.classList.add('mode-kds');
+                  } else {
+                      document.body.classList.remove('role-func');
+                      document.body.classList.remove('mode-kds');
+                  }
+                  
                   document.getElementById('loginOverlay').style.display = 'none';
                   iniciarSync();
               });
@@ -437,6 +445,7 @@
           render(); 
           atualizarSelect();
           atualizarDashboard();
+          if(document.body.classList.contains('mode-kds')) renderKDS();
       });
       db.collection("catalogo").onSnapshot((snap) => {
           catalogo = [];
@@ -473,8 +482,12 @@
   function toggleKDS() {
       document.body.classList.toggle('mode-kds');
       let btn = document.getElementById('btnSairKDS');
+      
       if(document.body.classList.contains('mode-kds')) {
-          btn.style.display = 'block'; // Mostra botão de sair
+          // Só mostra o botão de sair se NÃO FOR perfil 'func'
+          if(!document.body.classList.contains('role-func')) {
+              btn.style.display = 'block';
+          }
           renderKDS();
       } else {
           btn.style.display = 'none';
@@ -484,35 +497,75 @@
   function renderKDS() {
       const p = document.getElementById('painelKDS');
       p.innerHTML = '';
-      let pendentes = 0;
-      
+      let pedidosAgrupados = [];
+
+      // Agrupa os itens por cliente para a cozinha
       clientes.forEach(c => {
+          let itensPendentes = [];
+          let indicesOriginais = [];
+          
           c.itens.forEach((i, idx) => {
               if(!i.pronto) {
-                  pendentes++;
-                  let cor = i.tipo === 'online' ? '#E3F2FD' : '#FFF3E0';
-                  let border = i.tipo === 'online' ? '#2196F3' : '#FF9800';
-                  p.innerHTML += `
-                      <div class="kds-card" style="background:${cor}; border-top:5px solid ${border};">
-                          <div style="font-size:22px; font-weight:900;">${i.desc}</div>
-                          <div style="color:#444; font-style:italic; margin-bottom:10px; font-size:14px;">${i.ingredientes || 'Nenhuma observação'}</div>
-                          <div style="font-size:32px; font-weight:900; margin:15px 0; color:#000;">${i.qtd}x <span style="font-size:16px; font-weight:normal;">unidades</span></div>
-                          <div style="font-size:14px; color:#333; font-weight:bold;">👤 ${c.nome}</div>
-                          <div style="font-size:14px; color:#333; margin-bottom:10px;">📝 Pedido #${i.numPedido || '-'}</div>
-                          <button class="success" onclick="marcarPronto('${c.id}', ${idx})" style="width:100%; padding:15px; font-size:16px; font-weight:900;">✅ PRONTO</button>
-                      </div>
-                  `;
+                  itensPendentes.push(i);
+                  indicesOriginais.push(idx);
               }
           });
+
+          if(itensPendentes.length > 0) {
+              pedidosAgrupados.push({
+                  cid: c.id,
+                  nome: c.nome,
+                  itens: itensPendentes,
+                  indices: indicesOriginais,
+                  tipo: itensPendentes[0].tipo,
+                  num: itensPendentes[0].numPedido
+              });
+          }
       });
-      if(pendentes === 0) p.innerHTML = '<h2 style="color:#fff; text-align:center; grid-column: 1/-1; margin-top:50px;">Nenhum pedido pendente! 🎉</h2>';
+
+      if(pedidosAgrupados.length === 0) {
+          p.innerHTML = '<h2 style="color:#fff; text-align:center; grid-column: 1/-1; margin-top:50px;">Nenhum pedido pendente! 🎉</h2>';
+          return;
+      }
+
+      pedidosAgrupados.forEach(ped => {
+          let cor = ped.tipo === 'online' ? '#E3F2FD' : '#FFF3E0';
+          let border = ped.tipo === 'online' ? '#2196F3' : '#FF9800';
+          
+          let htmlItens = ped.itens.map(i => `
+              <div class="kds-item-row">
+                  <div style="font-size:22px; font-weight:900;">${i.qtd}x ${i.desc}</div>
+                  <div style="color:#444; font-style:italic; font-size:14px;">${i.ingredientes || ''}</div>
+              </div>
+          `).join('');
+
+          p.innerHTML += `
+              <div class="kds-card" style="background:${cor}; border-top-color:${border};">
+                  <div style="display:flex; justify-content:space-between; border-bottom:2px solid ${border}; padding-bottom:10px; margin-bottom:10px;">
+                      <div style="font-size:18px; font-weight:bold; color:#333;">👤 ${ped.nome}</div>
+                      <div style="font-size:16px; font-weight:900; background:${border}; color:#fff; padding:5px 10px; border-radius:8px;">#${ped.num || '-'}</div>
+                  </div>
+                  
+                  <div style="flex:1; margin-bottom:15px;">
+                      ${htmlItens}
+                  </div>
+                  
+                  <button class="success" onclick="marcarGrupoPronto('${ped.cid}', '${ped.indices.join(',')}')" style="width:100%; padding:15px; font-size:16px; font-weight:900; margin-top:auto;">✅ TUDO PRONTO</button>
+              </div>
+          `;
+      });
   }
 
-  function marcarPronto(cid, idx) {
+  function marcarGrupoPronto(cid, indicesStr) {
+      let indices = indicesStr.split(',').map(Number);
       let c = clientes.find(x => x.id === cid);
       let itens = [...c.itens];
-      itens[idx].pronto = true;
-      db.collection("clientes").doc(cid).update({itens}).then(() => renderKDS());
+      
+      indices.forEach(idx => {
+          itens[idx].pronto = true;
+      });
+      
+      db.collection("clientes").doc(cid).update({itens});
   }
 
   // ================= RELATÓRIOS E CAIXA =================
@@ -614,7 +667,7 @@
       }
   }
 
-  // ================= IMPRESSÃO CORRIGIDA E LIMPA =================
+  // ================= IMPRESSÃO TOTALMENTE CORRIGIDA =================
   function imprimirSelecionados(id) {
       let c = clientes.find(x => x.id === id);
       if(!c) return;
@@ -738,7 +791,7 @@
           document.getElementById('logradouro').value = d.logradouro || ''; 
           document.getElementById('bairro').value = d.bairro || ''; 
           document.getElementById('cidade').value = `${d.localidade}/${d.uf}`; 
-          document.getElementById('cidade').style.color = '#fff'; // Destaca que achou
+          document.getElementById('cidade').style.color = '#fff'; 
       }).catch(() => { 
           document.getElementById('logradouro').value = ""; 
           document.getElementById('bairro').value = ""; 
@@ -746,7 +799,7 @@
       });
   }
 
-  // --- SISTEMA DE TAGS INGREDIENTES ---
+  // --- SISTEMA DE TAGS INGREDIENTES (RESTAURADO) ---
   function addIngredienteTemp() {
       let ing = document.getElementById('novoIngrediente').value.trim();
       if(ing) {
@@ -837,7 +890,7 @@
           itens: firebase.firestore.FieldValue.arrayUnion(...carrinhoCompras)
       }).then(() => {
           carrinhoCompras = []; renderCarrinho();
-          Swal.fire({icon: 'success', title: 'Sucesso!', text: 'Pedido lançado na conta do cliente.', timer: 1500, showConfirmButton: false});
+          Swal.fire({icon: 'success', title: 'Sucesso!', text: 'Pedido lançado.', timer: 1500, showConfirmButton: false});
           
           let atual = Number(document.getElementById('numPedido').value);
           db.collection("config").doc("empresa").update({"contador": atual});
@@ -854,6 +907,10 @@
           let itensHtml = c.itens.map((i, idx) => {
               let pg = Number(i.pagoValor) || 0; let resta = i.valor - pg;
               let badge = i.tipo === 'online' ? '<span style="background:#2196F3; color:#fff; padding:3px 6px; font-size:10px; border-radius:6px; margin-left:5px;">ONLINE</span>' : '<span style="background:#FF9800; color:#000; padding:3px 6px; font-size:10px; border-radius:6px; margin-left:5px;">PRESENCIAL</span>';
+              
+              // SELO PRONTO PARA O ADMIN VER
+              let badgePronto = i.pronto ? '<span style="background:#4CAF50; color:#fff; padding:3px 6px; font-size:10px; border-radius:6px; margin-left:5px;">✅ PRONTO</span>' : '<span style="background:#EF5350; color:#fff; padding:3px 6px; font-size:10px; border-radius:6px; margin-left:5px;">⏳ COZINHA</span>';
+
               let status = i.pago ? '<span style="color:#66BB6A; font-weight:900;">✅ PAGO</span>' : (pg > 0 ? `<span style="color:#FFCA28; font-weight:900;">⏳ PARCIAL</span>` : `<span style="color:#EF5350; font-weight:900;">❌ ABERTO</span>`);
               let infoParcial = pg > 0 && !i.pago ? `<div style="font-size:13px; font-weight:bold; margin-top:4px;"><span style="color:#66BB6A;">Pago: ${formatarMoeda(pg)}</span><br><span style="color:#EF5350;">Resta: ${formatarMoeda(resta)}</span></div>` : '';
 
@@ -861,7 +918,7 @@
                   <tr>
                       <td style="width:30px;"><input type="checkbox" class="sel-${c.id}" value="${idx}" style="width:20px; height:20px; cursor:pointer;"></td>
                       <td>
-                          <div class="item-desc"><span style="color:#aaa;">#${i.numPedido || '-'}</span> ${i.desc} ${badge}</div>
+                          <div class="item-desc"><span style="color:#aaa;">#${i.numPedido || '-'}</span> ${i.desc} ${badge} ${badgePronto}</div>
                           ${i.ingredientes ? `<div class="item-ingred">${i.ingredientes}</div>` : ''}
                           <div style="font-size:13px; font-weight:bold; color:#fff; margin-top:2px;">${i.qtd}x unidades • ${formatarDataBR(i.data)}</div>
                       </td>
