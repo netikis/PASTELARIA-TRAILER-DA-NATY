@@ -25,6 +25,21 @@
 
   body { font-family: 'Poppins', sans-serif; background-color: var(--bg-dark); color: var(--text-main); margin: 0; padding-bottom: 60px; min-height: 100vh; }
 
+  /* --- SISTEMA DE NOTIFICAÇÕES (ALERTAS FIXOS) --- */
+  #notificationArea {
+      position: fixed; top: 70px; right: 20px; z-index: 99999;
+      display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+  }
+  .alerta-pronto {
+      background: #4CAF50; color: white; padding: 15px; border-radius: 12px;
+      border-left: 8px solid #1B5E20; box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+      pointer-events: auto; display: flex; align-items: center; justify-content: space-between;
+      gap: 20px; min-width: 250px; animation: slideInRight 0.4s ease-out;
+  }
+  @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .btn-fechar-alerta { background: rgba(0,0,0,0.2); border: none; color: white; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; font-size: 12px; }
+  .btn-fechar-alerta:hover { background: rgba(0,0,0,0.4); }
+
   /* --- MODO COZINHA (KDS) --- */
   body.mode-kds .container > *:not(#painelKDS) { display: none !important; }
   body.mode-kds .header { display: none !important; }
@@ -125,11 +140,13 @@
 </head>
 <body>
 
+<div id="notificationArea" class="admin-only"></div>
+
 <button id="btnSairKDS" class="admin-only" onclick="toggleKDS()">❌ SAIR DA COZINHA</button>
 
 <div id="printOverlay">
     <div class="print-controls" style="position:fixed; top:20px; right:20px; z-index:10000000;">
-        <button class="danger" onclick="fecharImpressao()" style="padding:15px 30px; font-size:16px; box-shadow:0 5px 15px rgba(0,0,0,0.5); font-weight:900;">❌ FECHAR E VOLTAR</button>
+        <button class="danger" onclick="fecharImpressao()" style="padding:15px 30px; font-size:16px; box-shadow:0 5px 15px rgba(0,0,0,0.5); font-weight:900;">❌ FECHAR IMPRESSÃO</button>
     </div>
     <div id="printContent" style="width:100%; display:flex; justify-content:center; padding-top:30px;"></div>
 </div>
@@ -216,6 +233,7 @@
                   </div>
                   <div id="listaIngredientesTemp" style="margin-top:8px;"></div>
               </div>
+
               <button class="success" onclick="salvarCatalogo()" style="width:100%; padding:15px; font-size:14px;">➕ CADASTRAR PRODUTO</button>
           </div>
       </div>
@@ -308,7 +326,9 @@
         <div class="tab-lista" id="tabListaMesa" onclick="setFiltroLista('mesa')">🪑 MESAS</div>
         <div class="tab-lista" id="tabListaDelivery" onclick="setFiltroLista('delivery')">🛵 DELIVERY</div>
     </div>
-    <input type="text" id="searchBox" placeholder="🔍 Buscar Cliente ou Mesa..." onkeyup="render()" autocomplete="off" style="padding:15px; font-size:16px; margin-bottom:15px;">
+    
+    <input type="search" id="searchBox" placeholder="🔍 Buscar Cliente ou Mesa..." onkeyup="render()" autocomplete="new-password" name="busca_cliente_evitar_email" style="padding:15px; font-size:16px; margin-bottom:15px;">
+    
     <div id="listaClientes"></div>
   </div>
 
@@ -317,7 +337,7 @@
 <div class="modal" id="modalSelecaoProdutos">
     <div class="modal-content">
         <h3 style="color:var(--accent); font-size:20px;">Cardápio</h3>
-        <input type="text" id="buscaProdutoModal" placeholder="🔍 Filtrar produto..." onkeyup="renderProdutosModal()" style="margin-bottom:15px; padding:15px;">
+        <input type="search" id="buscaProdutoModal" placeholder="🔍 Filtrar produto..." onkeyup="renderProdutosModal()" autocomplete="new-password" style="margin-bottom:15px; padding:15px;">
         <div id="listaProdutosModal" style="max-height:50vh; overflow-y:auto; padding-right:5px;"></div>
         <button class="danger" onclick="document.getElementById('modalSelecaoProdutos').style.display='none'" style="width:100%; margin-top:15px; padding:15px; font-size:16px;">FECHAR</button>
     </div>
@@ -418,28 +438,41 @@
   let payRef = null; let caixaTotal = []; 
   let roleUsuarioAtual = 'admin'; let filtroListaAtual = 'todos';
 
-  // ================= SISTEMA DE BEEP (APITO) =================
-  // Funciona offline, não depende de arquivos externos
+  // ================= SISTEMA DE BEEP (APITO OFFLINE) =================
   function tocarBeep() {
       try {
           const ctx = new (window.AudioContext || window.webkitAudioContext)();
           function beep(freq, time, vol) {
               const osc = ctx.createOscillator();
               const gain = ctx.createGain();
-              osc.connect(gain);
-              gain.connect(ctx.destination);
+              osc.connect(gain); gain.connect(ctx.destination);
               osc.frequency.value = freq;
               gain.gain.setValueAtTime(vol, ctx.currentTime + time);
               gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + time + 0.3);
               osc.start(ctx.currentTime + time);
               osc.stop(ctx.currentTime + time + 0.3);
           }
-          beep(880, 0, 1);    // Primeiro toque
-          beep(1046, 0.15, 1); // Segundo toque agudo
-      } catch(e) { console.log('Áudio não suportado no navegador atual.'); }
+          beep(880, 0, 1);    
+          beep(1046, 0.15, 1); 
+      } catch(e) { console.log('Áudio não suportado.'); }
   }
 
-  // ================= INICIALIZAÇÃO =================
+  // ================= SISTEMA DE ALERTAS FIXOS =================
+  function mostrarAlertaPronto(nomeCliente) {
+      const area = document.getElementById('notificationArea');
+      const alertDiv = document.createElement('div');
+      alertDiv.className = 'alerta-pronto';
+      alertDiv.innerHTML = `
+          <div>
+              <strong style="font-size:16px;">✅ Pedido Pronto!</strong><br>
+              <span style="font-size:14px; font-weight:bold; text-transform:uppercase;">${nomeCliente}</span>
+          </div>
+          <button onclick="this.parentElement.remove()" class="btn-fechar-alerta">OK, Entregue</button>
+      `;
+      area.appendChild(alertDiv);
+  }
+
+  // ================= INICIALIZAÇÃO E SESSÃO =================
   $(document).ready(function(){
       $('#telefone').mask('(00) 00000-0000');
       $('#cep').mask('00000-000');
@@ -484,32 +517,33 @@
   function iniciarSync() {
       db.collection("clientes").orderBy("nome").onSnapshot((snap) => { 
           clientes = []; 
-          let hasNovoPronto = false; // Flag para o Apito
+          let chamouBeep = false;
           
           snap.forEach((d) => {
               let data = d.data();
-              // Verifica novos "Prontos" se eu for o ADMIN
               if(roleUsuarioAtual === 'admin') {
                   let needUpdate = false;
+                  let clienteTemNovoPronto = false;
+                  
                   data.itens = data.itens.map(i => {
                       if(i.pronto && !i.notificadoAdmin) {
-                          hasNovoPronto = true;
+                          clienteTemNovoPronto = true;
                           needUpdate = true;
                           return {...i, notificadoAdmin: true};
                       }
                       return i;
                   });
-                  if(needUpdate) {
-                      db.collection("clientes").doc(d.id).update({itens: data.itens});
+                  
+                  if(needUpdate) { db.collection("clientes").doc(d.id).update({itens: data.itens}); }
+                  if(clienteTemNovoPronto) {
+                      mostrarAlertaPronto(data.nome); // Mostra o card fixo na tela
+                      chamouBeep = true;
                   }
               }
               clientes.push({id: d.id, ...data});
           }); 
 
-          if(hasNovoPronto) {
-              tocarBeep();
-              Swal.fire({ toast: true, position: 'top-end', icon: 'success', title: 'Atenção! Pedido Pronto na Cozinha!', timer: 4000, showConfirmButton: false });
-          }
+          if(chamouBeep) tocarBeep();
 
           render(); 
           atualizarSelect();
@@ -611,7 +645,7 @@
   function marcarGrupoPronto(cid, indicesStr) {
       let indices = indicesStr.split(',').map(Number);
       let c = clientes.find(x => x.id === cid); let itens = [...c.itens];
-      indices.forEach(idx => { itens[idx].pronto = true; itens[idx].notificadoAdmin = false; }); // Avisar Admin
+      indices.forEach(idx => { itens[idx].pronto = true; itens[idx].notificadoAdmin = false; }); 
       db.collection("clientes").doc(cid).update({itens});
   }
 
@@ -637,7 +671,7 @@
   }
 
   function limparMesa(cid) {
-      Swal.fire({title:'Limpar Itens desta Mesa?', text: 'Isso remove os pedidos da mesa atual, deixando-a livre.', icon:'warning', showCancelButton:true, confirmButtonColor:'#FF9800', confirmButtonText: 'Sim, limpar mesa'}).then(r => { 
+      Swal.fire({title:'Limpar Itens desta Mesa?', text: 'Isso remove os pedidos atuais, deixando a mesa livre.', icon:'warning', showCancelButton:true, confirmButtonColor:'#FF9800', confirmButtonText: 'Sim, limpar mesa'}).then(r => { 
           if(r.isConfirmed) { db.collection("clientes").doc(cid).update({itens: []}).then(()=>Swal.fire('Mesa Limpa!','','success')); } 
       });
   }
@@ -768,9 +802,9 @@
   }
 
   function concluirPedido() {
-      let id = document.getElementById('clienteSelect').value; if(!id) return Swal.fire('Aviso', 'Selecione o cliente acima', 'warning');
-      db.collection("clientes").doc(id).update({ itens: firebase.firestore.FieldValue.arrayUnion(...carrinhoCompras) }).then(() => {
-          carrinhoCompras = []; renderCarrinho(); Swal.fire({icon: 'success', title: 'Lançado!', timer: 1500, showConfirmButton: false});
+      let id = document.getElementById('clienteSelect').value; if(!id) return Swal.fire('Ops', 'Selecione cliente e itens', 'warning');
+      db.collection("clientes").doc(id).update({itens:firebase.firestore.FieldValue.arrayUnion(...carrinhoCompras)}).then(()=>{
+          carrinhoCompras=[]; renderCarrinho(); Swal.fire({icon: 'success', title: 'Pedido salvo', timer: 1500, showConfirmButton: false});
           db.collection("config").doc("empresa").update({"contador": Number(document.getElementById('numPedido').value)});
       });
   }
@@ -855,7 +889,7 @@
   function compartilharZap(id) { let c = clientes.find(x => x.id === id); if(c && c.telefone) { let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}*.\n\nSeu pedido está registrado.`; window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); } else { Swal.fire('Aviso', 'Sem telefone.', 'info'); } }
   function excluirItem(cid, idx) { Swal.fire({title:'Apagar Item?', icon:'warning', showCancelButton:true, confirmButtonColor:'#EF5350', confirmButtonText: 'Sim'}).then(r => { if(r.isConfirmed) { let c = clientes.find(x => x.id === cid); let novosItens = c.itens.filter((_, i) => i !== idx); db.collection("clientes").doc(cid).update({itens: novosItens}); } }); }
   function excluirCliente(cid) { Swal.fire({title:'Apagar Tudo?', icon:'error', showCancelButton:true, confirmButtonColor:'#EF5350', confirmButtonText: 'EXCLUIR'}).then((r) => { if(r.isConfirmed) db.collection("clientes").doc(cid).delete(); }); }
-  document.getElementById('searchBox').setAttribute('autocomplete', 'off');
+
 </script>
 </body>
 </html>
