@@ -55,7 +55,7 @@
   body.mode-kds #painelKDS { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; padding: 15px; padding-top: 20px; }
   
   body.mode-kds .titulo-caixa { display: none !important; }
-  body.mode-kds .titulo-cozinha { display: inline !important; color: #FFCA28; }
+  body.mode-kds .titulo-cozinha { display: inline !important; color: #FFCA28; font-weight: 900; }
   body.mode-kds .header { border-bottom: 3px solid #FFCA28; }
   body.mode-kds .btn-kds-toggle { display: none !important; }
   
@@ -126,7 +126,7 @@
   .kds-item-row { border-bottom: 1px dashed #ccc; padding: 8px 0; }
   .kds-item-row:last-child { border-bottom: none; }
 
-  /* MODAL */
+  /* MODAIS GERAIS */
   .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; align-items: center; justify-content: center; z-index: 99999; }
   .modal-content { background: #3E2723; border: 1px solid var(--accent); width: 95%; max-width: 500px; max-height: 90vh; overflow-y: auto; padding: 20px; border-radius: 15px; }
 
@@ -155,6 +155,8 @@
 
   .ingrediente-tag { background: #5D4037; color: #FFCCBC; padding: 6px 10px; border-radius: 15px; font-size: 11px; margin: 3px; display: inline-block; border: 1px solid #8D6E63; cursor: pointer; }
   .ingrediente-tag:hover { background: #EF5350; border-color: #EF5350; color: #fff; }
+
+  .swal2-container { z-index: 1000000 !important; }
 </style>
 </head>
 <body>
@@ -184,10 +186,12 @@
         <form onsubmit="fazerLogin(event)">
             <input type="email" id="emailInput" placeholder="E-mail" required style="margin-bottom:10px; text-align:center;">
             <input type="password" id="senhaInput" placeholder="Senha" required style="margin-bottom:15px; text-align:center;">
+            
             <div style="margin-bottom:15px; color:#aaa; font-size:12px;">
                 <input type="checkbox" id="chkLembrarEmail" style="width:auto; min-width:auto;"> Lembrar E-mail
             </div>
-            <button type="submit" class="success" style="width:100%; padding:15px; font-size:16px;">ENTRAR</button>
+            
+            <button type="submit" class="success" style="width:100%; padding:15px; font-size:16px; font-weight:900;">ENTRAR</button>
         </form>
         <div id="msgLogin" style="color:#FFCA28; font-weight:bold; margin-top:15px; font-size:13px; min-height: 20px;"></div>
         
@@ -260,13 +264,15 @@
                       </div>
                       <div id="listaIngredientesTemp" style="margin-top:8px;"></div>
                   </div>
-                  <button class="success" onclick="salvarCatalogo()" style="width:100%; padding:15px; font-size:14px;">➕ CADASTRAR PRODUTO</button>
+                  <button class="success" onclick="salvarCatalogo()" style="width:100%; padding:15px; font-size:14px; margin-bottom:10px;">➕ CADASTRAR PRODUTO</button>
+                  
+                  <button class="warning" onclick="abrirGerenciarCatalogo()" style="width:100%; padding:12px; font-size:14px; font-weight:bold; color:#3E2723;">📋 VER E EDITAR CARDÁPIO</button>
               </div>
 
               <div style="background:#2D1B15; padding:15px; border-radius:10px; border:1px dashed #FFCA28;">
                   <h4 style="color:#FFCA28; margin-top:0;">💽 Backup do Sistema</h4>
                   <p style="font-size:11px; color:#aaa; margin-bottom:10px;">O sistema salva na nuvem automaticamente. Use os botões abaixo se quiser um arquivo de segurança no seu computador.</p>
-                  <button class="warning" onclick="baixarBackup()" style="width:100%; padding:12px; margin-bottom:10px; font-weight:bold;">⬇️ BAIXAR BACKUP (PC/CELULAR)</button>
+                  <button class="warning" onclick="baixarBackup()" style="width:100%; padding:12px; margin-bottom:10px; font-weight:bold;">⬇️ BAIXAR BACKUP</button>
                   
                   <div style="border-top:1px solid #444; margin:10px 0; padding-top:10px;">
                       <label style="font-size:11px; color:#aaa;">Restaurar Arquivo (.json):</label>
@@ -368,12 +374,20 @@
         <div class="tab-lista" id="tabListaDelivery" onclick="setFiltroLista('delivery')">🛵 DELIVERY</div>
     </div>
     
-    <input type="search" id="searchBox" placeholder="🔍 Buscar Cliente ou Mesa..." onkeyup="resetPaginacaoERender()" autocomplete="new-password" name="busca_cliente_evitar_email" style="padding:15px; font-size:16px; margin-bottom:15px;" readonly>
+    <input type="search" id="searchBox" placeholder="🔍 Buscar Cliente ou Mesa..." onkeyup="resetPaginacaoERender()" autocomplete="new-password" style="padding:15px; font-size:16px; margin-bottom:15px;">
     
     <div id="listaClientes"></div>
     <div id="paginacaoContainer" class="paginacao-container"></div>
   </div>
 
+</div>
+
+<div class="modal" id="modalGerenciarCatalogo">
+    <div class="modal-content">
+        <h3 style="color:var(--accent); font-size:20px;">📋 Gerenciar Cardápio</h3>
+        <div id="listaGerenciarCatalogo" style="max-height:60vh; overflow-y:auto; padding-right:5px; margin-bottom:15px;"></div>
+        <button class="danger" onclick="document.getElementById('modalGerenciarCatalogo').style.display='none'" style="width:100%; padding:15px; font-size:16px;">FECHAR</button>
+    </div>
 </div>
 
 <div class="modal" id="modalSelecaoProdutos">
@@ -486,12 +500,12 @@
   let carrinhoCompras = []; let ingredientesTemp = [];
   let payRef = null; let caixaTotal = []; 
   let roleUsuarioAtual = 'admin'; let filtroListaAtual = 'todos';
+  let alertasAtivos = new Set(); 
   
-  // Variáveis para Paginação
   let paginaAtual = 1;
   const ITENS_POR_PAGINA = 10;
 
-  // ================= SISTEMA DE BEEP (APITO OFFLINE) =================
+  // ================= SISTEMA DE BEEP =================
   function tocarBeep() {
       try {
           const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -523,13 +537,17 @@
               <strong style="font-size:16px;">✅ Pedido Pronto!</strong><br>
               <span style="font-size:14px; font-weight:bold; text-transform:uppercase;">${nomeCliente}</span>
           </div>
-          <button onclick="this.parentElement.remove()" class="btn-fechar-alerta">OK, Entregue</button>
+          <button onclick="fecharAlerta(this, '${cid}')" class="btn-fechar-alerta">OK, Entregue</button>
       `;
       area.appendChild(alertDiv);
       return true; 
   }
 
-  // ================= INICIALIZAÇÃO E SESSÃO =================
+  function fecharAlerta(botao, cid) {
+      botao.parentElement.remove();
+  }
+
+  // ================= INICIALIZAÇÃO =================
   $(document).ready(function(){
       $('#telefone').mask('(00) 00000-0000');
       $('#cep').mask('00000-000');
@@ -542,14 +560,74 @@
           document.getElementById('logoLoginDisplay').src = logoBase64;
           document.body.style.setProperty('--bg-logo', `url(${logoBase64})`);
       }
+      
+      // Limpa a senha visualmente por segurança
+      document.getElementById('senhaInput').value = '';
+      
       const emailSalvo = localStorage.getItem('naty_email_login');
       if(emailSalvo) {
           document.getElementById('emailInput').value = emailSalvo;
           document.getElementById('chkLembrarEmail').checked = true;
       }
-      
-      setTimeout(() => { document.getElementById('searchBox').removeAttribute('readonly'); }, 500);
   });
+
+  // ================= LOGIN BLINDADO E MANUAL =================
+  
+  // Informa ao Firebase que ele não deve salvar a sessão no navegador para auto-login
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+  let isLogadoNestaSessao = sessionStorage.getItem("logado_agora");
+
+  auth.onAuthStateChanged((user) => {
+      // Se tiver usuário logado E ele tiver passado pelo botão de ENTRAR (Sessão Ativa)
+      if (user && isLogadoNestaSessao === "sim") {
+          carregarSistema(user);
+      } else {
+          // Se houver um usuário no cache do navegador, mas ele acabou de abrir a janela, nós derrubamos ele
+          if(user) {
+              auth.signOut();
+          }
+          document.getElementById('loginOverlay').style.display = 'flex';
+          voltarLogin();
+      }
+  });
+
+  function fazerLogin(event) { 
+      if(event) event.preventDefault();
+      
+      const email = document.getElementById('emailInput').value.trim(); 
+      const pass = document.getElementById('senhaInput').value; 
+      const msgBox = document.getElementById('msgLogin');
+      
+      if(!email || !pass) {
+          msgBox.innerText = "Preencha e-mail e senha.";
+          return;
+      }
+      
+      msgBox.innerText = "Carregando...";
+      msgBox.style.color = "#FFCA28"; 
+      
+      if(document.getElementById('chkLembrarEmail').checked) {
+          localStorage.setItem('naty_email_login', email);
+      } else {
+          localStorage.removeItem('naty_email_login');
+      }
+      
+      auth.signInWithEmailAndPassword(email, pass).then((userCred) => {
+          msgBox.innerText = "Login aprovado! Entrando...";
+          msgBox.style.color = "#66BB6A"; 
+          document.getElementById('senhaInput').value = ''; 
+          
+          // Marca que esse login foi feito nesta janela especificamente
+          sessionStorage.setItem("logado_agora", "sim");
+          isLogadoNestaSessao = "sim";
+          
+          // onAuthStateChanged vai capturar e abrir a tela
+      }).catch(err => {
+          msgBox.style.color = "#EF5350"; 
+          msgBox.innerText = "Senha incorreta ou acesso bloqueado.";
+      }); 
+  }
 
   function carregarSistema(user) {
       db.collection("usuarios").doc(user.uid).get().then((doc) => {
@@ -566,48 +644,10 @@
           iniciarSync();
       });
   }
-
-  auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch((error) => {
-      console.log("Aviso: Navegador bloqueou sessão rígida.");
-  });
-
-  auth.onAuthStateChanged((user) => {
-      if (user) {
-          carregarSistema(user);
-      } else {
-          document.getElementById('loginOverlay').style.display = 'flex';
-          voltarLogin();
-      }
-  });
-
-  function fazerLogin(event) { 
-      if(event) event.preventDefault();
-      
-      const email = document.getElementById('emailInput').value.trim(); 
-      const pass = document.getElementById('senhaInput').value; 
-      
-      const msgBox = document.getElementById('msgLogin');
-      msgBox.innerText = "Carregando...";
-      msgBox.style.color = "#FFCA28"; 
-      
-      if(document.getElementById('chkLembrarEmail').checked) {
-          localStorage.setItem('naty_email_login', email);
-      } else {
-          localStorage.removeItem('naty_email_login');
-      }
-      
-      auth.signInWithEmailAndPassword(email, pass).then((userCred) => {
-          msgBox.innerText = "Login aprovado! Entrando...";
-          msgBox.style.color = "#66BB6A"; 
-          carregarSistema(userCred.user);
-      }).catch(err => {
-          msgBox.style.color = "#EF5350"; 
-          if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-              msgBox.innerText = "Usuário não encontrado ou senha incorreta.";
-          } else {
-              msgBox.innerText = "Erro de conexão. Verifique a internet.";
-          }
-      }); 
+  
+  function logout() { 
+      sessionStorage.removeItem('logado_agora'); 
+      auth.signOut().then(()=>{ window.location.reload(); }); 
   }
 
   function resetarApp() {
@@ -658,7 +698,9 @@
       
       db.collection("catalogo").onSnapshot((snap) => {
           catalogo = []; snap.forEach((d) => catalogo.push({id: d.id, ...d.data()}));
+          if(document.getElementById('modalGerenciarCatalogo').style.display === 'flex') renderGerenciarCatalogo();
       });
+      
       db.collection("config").doc("empresa").onSnapshot((doc) => {
           if(doc.exists) {
               let d = doc.data();
@@ -675,92 +717,46 @@
               if(d.contador !== undefined) document.getElementById('numPedido').value = d.contador + 1;
           }
       });
+      
       db.collection("caixa").onSnapshot(snap => {
           caixaTotal = [];
-          snap.forEach(d => { caixaTotal.push({id: d.id, ...d.data()}); });
+          snap.forEach(d => {
+              let item = {id: d.id, ...d.data()};
+              caixaTotal.push(item);
+          });
           atualizarDashboard();
       });
   }
 
-  // ================= SISTEMA DE BACKUP (DOWNLOAD E UPLOAD JSON) =================
+  // ================= SISTEMA DE BACKUP =================
   function baixarBackup() {
       Swal.fire({title: 'Gerando Backup...', text: 'Isso pode levar alguns segundos.', didOpen: () => Swal.showLoading()});
-      
-      // Monta o arquivo
-      let backupData = {
-          clientes: clientes,
-          catalogo: catalogo,
-          caixa: caixaTotal,
-          config: empDados,
-          dataBackup: new Date().toISOString()
-      };
-      
+      let backupData = { clientes: clientes, catalogo: catalogo, caixa: caixaTotal, config: empDados, dataBackup: new Date().toISOString() };
       let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
       let dlAnchorElem = document.createElement('a');
       dlAnchorElem.setAttribute("href", dataStr);
       dlAnchorElem.setAttribute("download", "backup_trailer_naty_" + new Date().toISOString().split('T')[0] + ".json");
       dlAnchorElem.click();
-      
       Swal.fire('Backup Salvo!', 'O arquivo JSON foi baixado para o seu dispositivo.', 'success');
   }
 
   function restaurarBackup() {
-      let input = document.getElementById('inputBackup');
-      let file = input.files[0];
-      
+      let input = document.getElementById('inputBackup'); let file = input.files[0];
       if(!file) return Swal.fire('Erro', 'Por favor, selecione um arquivo JSON primeiro.', 'error');
-
-      Swal.fire({
-          title: 'ATENÇÃO!',
-          text: "Restaurar este backup irá sobrescrever as configurações atuais e adicionar os dados salvos. Tem certeza?",
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#EF5350',
-          confirmButtonText: 'Sim, Restaurar Arquivo'
-      }).then((result) => {
+      Swal.fire({ title: 'ATENÇÃO!', text: "Restaurar este backup irá sobrescrever as configurações atuais e adicionar os dados salvos. Tem certeza?", icon: 'warning', showCancelButton: true, confirmButtonColor: '#EF5350', confirmButtonText: 'Sim, Restaurar Arquivo' }).then((result) => {
           if (result.isConfirmed) {
               Swal.fire({title: 'Restaurando dados...', didOpen: () => Swal.showLoading()});
-              
               let reader = new FileReader();
               reader.onload = async function(e) {
                   try {
                       let backup = JSON.parse(e.target.result);
-                      
-                      // Restaura Clientes
-                      if(backup.clientes) {
-                          backup.clientes.forEach(c => {
-                              let docId = c.id; 
-                              delete c.id; // limpa o ID do payload
-                              db.collection("clientes").doc(docId).set(c);
-                          });
-                      }
-                      
-                      // Restaura Catálogo
-                      if(backup.catalogo) {
-                          backup.catalogo.forEach(p => {
-                              let docId = p.id; delete p.id;
-                              db.collection("catalogo").doc(docId).set(p);
-                          });
-                      }
-                      
-                      // Restaura Caixa
-                      if(backup.caixa) {
-                          backup.caixa.forEach(m => {
-                              let docId = m.id; delete m.id;
-                              db.collection("caixa").doc(docId).set(m);
-                          });
-                      }
-                      
-                      // Restaura Config
-                      if(backup.config) {
-                          db.collection("config").doc("empresa").set(backup.config, {merge: true});
-                      }
-
+                      if(backup.clientes) backup.clientes.forEach(c => { let docId = c.id; delete c.id; db.collection("clientes").doc(docId).set(c); });
+                      if(backup.catalogo) backup.catalogo.forEach(p => { let docId = p.id; delete p.id; db.collection("catalogo").doc(docId).set(p); });
+                      if(backup.caixa) backup.caixa.forEach(m => { let docId = m.id; delete m.id; db.collection("caixa").doc(docId).set(m); });
+                      if(backup.config) db.collection("config").doc("empresa").set(backup.config, {merge: true});
                       Swal.fire('Restauração Concluída!', 'Os dados do sistema foram atualizados.', 'success');
-                      input.value = ''; // limpa o input
-                  } catch(err) {
-                      Swal.fire('Erro no Arquivo', 'O arquivo selecionado não é um backup válido.', 'error');
-                  }
+                      input.value = ''; 
+                  } catch(err) { Swal.fire('Erro no Arquivo', 'O arquivo selecionado não é um backup válido.', 'error'); }
               }
               reader.readAsText(file);
           }
@@ -784,6 +780,57 @@
                   tempApp.delete(); document.getElementById('modalUsuario').style.display = 'none'; Swal.fire('Sucesso!', 'Acesso criado!', 'success');
               });
           }).catch((e) => { tempApp.delete(); Swal.fire('Erro', e.message, 'error'); });
+  }
+
+  // ================= GERENCIAR CARDÁPIO =================
+  function abrirGerenciarCatalogo() {
+      document.getElementById('modalGerenciarCatalogo').style.display = 'flex';
+      renderGerenciarCatalogo();
+  }
+
+  function renderGerenciarCatalogo() {
+      let html = '';
+      catalogo.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(p => {
+          html += `
+          <div style="display:flex; justify-content:space-between; background:#222; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid #444; align-items:center;">
+              <div>
+                  <div style="font-weight:bold; font-size:14px; color:#fff;">${p.nome}</div>
+                  <div style="font-size:10px; color:#aaa;">${p.ingredientes || 'Sem ingredientes adicionais'}</div>
+                  <div style="color:#66BB6A; font-weight:bold; font-size:12px; margin-top:3px;">${formatarMoeda(p.valor)}</div>
+              </div>
+              <div style="display:flex; gap:5px;">
+                  <button class="primary" onclick="editarProduto('${p.id}')" style="padding:8px 12px; font-size:12px;">✏️</button>
+                  <button class="danger" onclick="excluirProduto('${p.id}')" style="padding:8px 12px; font-size:12px;">🗑️</button>
+              </div>
+          </div>`;
+      });
+      document.getElementById('listaGerenciarCatalogo').innerHTML = html || '<p style="color:#aaa; text-align:center;">Nenhum produto cadastrado.</p>';
+  }
+
+  function editarProduto(id) {
+      let p = catalogo.find(x => x.id === id);
+      if(!p) return;
+      Swal.fire({
+          title: 'Editar Produto',
+          html: `<input id="editProdNome" class="swal2-input" placeholder="Nome" value="${p.nome}" style="margin-bottom:10px; width:80%;">
+                 <input id="editProdValor" type="number" step="0.01" class="swal2-input" placeholder="Preço" value="${p.valor}" style="margin-bottom:10px; width:80%;">
+                 <input id="editProdIngred" class="swal2-input" placeholder="Ingredientes" value="${p.ingredientes || ''}" style="width:80%;">`,
+          showCancelButton: true, confirmButtonText: 'Salvar', confirmButtonColor: '#66BB6A', cancelButtonText: 'Cancelar',
+          preConfirm: () => {
+              let n = document.getElementById('editProdNome').value.trim();
+              let v = Number(document.getElementById('editProdValor').value.replace(',', '.'));
+              let i = document.getElementById('editProdIngred').value.trim();
+              if(!n || v <= 0) { Swal.showValidationMessage('Nome e Preço inválidos!'); return false; }
+              return { nome: n.toUpperCase(), valor: v, ingredientes: i };
+          }
+      }).then((result) => {
+          if(result.isConfirmed) db.collection("catalogo").doc(id).update(result.value).then(() => Swal.fire({icon:'success', title:'Atualizado!', timer:1000, showConfirmButton:false}));
+      });
+  }
+
+  function excluirProduto(id) {
+      Swal.fire({ title: 'Excluir Produto?', text: 'Removerá do cardápio permanentemente.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#EF5350', confirmButtonText: 'Sim, excluir'
+      }).then(r => { if(r.isConfirmed) db.collection("catalogo").doc(id).delete(); });
   }
 
   // ================= KDS (COZINHA) =================
@@ -839,7 +886,7 @@
       db.collection("clientes").doc(cid).update({itens});
   }
 
-  // ================= FILTRO DE ABAS, BUSCA E PAGINAÇÃO =================
+  // ================= FILTRO DE ABAS & LIMPAR MESA =================
   function setFiltroLista(tipo) {
       filtroListaAtual = tipo;
       document.querySelectorAll('.tab-lista').forEach(b => b.classList.remove('active'));
@@ -858,7 +905,6 @@
   function mudarPagina(novaPag) {
       paginaAtual = novaPag;
       render();
-      // Scroll suave para o topo da lista
       document.getElementById('searchBox').scrollIntoView({ behavior: 'smooth' });
   }
 
@@ -886,14 +932,12 @@
       
       let termo = document.getElementById('searchBox').value.toLowerCase();
       
-      // 1. Filtrar Lista Geral
       let listaFiltrada = clientes.filter(c => {
           let matchFiltro = (filtroListaAtual === 'todos') || (c.tipoCadastro === filtroListaAtual) || (!c.tipoCadastro && filtroListaAtual === 'delivery');
           let matchBusca = c.nome.toLowerCase().includes(termo);
           return matchFiltro && matchBusca;
       });
 
-      // 2. Calcular Paginação
       let totalPaginas = Math.ceil(listaFiltrada.length / ITENS_POR_PAGINA);
       if (paginaAtual > totalPaginas && totalPaginas > 0) paginaAtual = totalPaginas;
       if (paginaAtual < 1) paginaAtual = 1;
@@ -902,7 +946,6 @@
       let fim = inicio + ITENS_POR_PAGINA;
       let clientesDaPagina = listaFiltrada.slice(inicio, fim);
 
-      // 3. Renderizar Clientes da Página Atual
       clientesDaPagina.forEach(c => {
           let saldoCli = c.itens.reduce((acc, i) => acc + (Number(i.valor)||0) - (Number(i.pagoValor)||0), 0);
           let itensHtml = c.itens.map((i, idx) => {
@@ -950,19 +993,14 @@
           </div>`;
       });
       
-      // 4. Renderizar Botões de Paginação se houver mais de 1 página
       if(totalPaginas > 1) {
           let botoesHtml = '';
-          
           if(paginaAtual > 1) botoesHtml += `<button class="page-btn" onclick="mudarPagina(${paginaAtual - 1})">⬅ Anterior</button>`;
-          
           for(let i = 1; i <= totalPaginas; i++) {
               let activeClass = (i === paginaAtual) ? 'active' : '';
               botoesHtml += `<button class="page-btn ${activeClass}" onclick="mudarPagina(${i})">${i}</button>`;
           }
-          
           if(paginaAtual < totalPaginas) botoesHtml += `<button class="page-btn" onclick="mudarPagina(${paginaAtual + 1})">Próxima ➡</button>`;
-          
           paginacaoBox.innerHTML = botoesHtml;
       }
   }
@@ -1004,21 +1042,20 @@
       }).catch(() => { document.getElementById('logradouro').value = ""; document.getElementById('bairro').value = ""; document.getElementById('cidade').value = ""; });
   }
 
-  // --- TAGS INGREDIENTES E CATALOGO ---
   function addIngredienteTemp() { let ing = document.getElementById('novoIngrediente').value.trim(); if(ing) { ingredientesTemp.push(ing); document.getElementById('novoIngrediente').value = ''; renderIngredientesTemp(); } }
   function removerIngredienteTemp(idx) { ingredientesTemp.splice(idx, 1); renderIngredientesTemp(); }
   function renderIngredientesTemp() { let html = ingredientesTemp.map((i, idx) => `<span class="ingrediente-tag" onclick="removerIngredienteTemp(${idx})" title="Remover">${i} ✕</span>`).join(''); document.getElementById('listaIngredientesTemp').innerHTML = html; }
   
   function salvarCatalogo() { 
-      let n = document.getElementById('catNome').value; let v = Number(document.getElementById('catValor').value.replace(',','.')); 
+      let n = document.getElementById('catNome').value; let vStr = document.getElementById('catValor').value.replace(',','.'); let v = Number(vStr); 
       if(n && v > 0){ 
-          db.collection("catalogo").add({ nome:n.toUpperCase(), valor:v, ingredientes: ingredientesTemp.join(', ') }); 
+          let ingsStr = ingredientesTemp.join(', '); db.collection("catalogo").add({ nome:n.toUpperCase(), valor:v, ingredientes: ingsStr }); 
           document.getElementById('catNome').value=''; document.getElementById('catValor').value=''; document.getElementById('novoIngrediente').value=''; ingredientesTemp = []; renderIngredientesTemp(); Swal.fire('Produto Salvo!','','success'); 
       } else { Swal.fire('Erro', 'Preencha o nome e preço', 'error'); }
   }
 
   function adicionarAoCarrinho() {
-      let desc = document.getElementById('descricao').value; let qtd = Number(document.getElementById('quantidade').value); let val = Number(document.getElementById('valorUnitario').value.replace(',','.'));
+      let desc = document.getElementById('descricao').value; let qtd = Number(document.getElementById('quantidade').value); let valStr = document.getElementById('valorUnitario').value.replace(',','.'); let val = Number(valStr);
       if(!desc || val <= 0) return Swal.fire('Erro', 'Selecione um produto', 'error');
       
       let item = { desc: desc, qtd: qtd, valor: val * qtd, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, ingredientes: document.getElementById('displayIngredientes').innerText, numPedido: document.getElementById('numPedido').value || 1, pago: false, pagoValor: 0, pronto: false, notificadoAdmin: true }; 
@@ -1035,14 +1072,14 @@
   }
 
   function concluirPedido() {
-      let id = document.getElementById('clienteSelect').value; if(!id) return Swal.fire('Ops', 'Selecione cliente e itens', 'warning');
+      let id = document.getElementById('clienteSelect').value; if(!id) return Swal.fire('Aviso', 'Por favor, selecione um cliente na lista acima.', 'warning');
       db.collection("clientes").doc(id).update({itens:firebase.firestore.FieldValue.arrayUnion(...carrinhoCompras)}).then(()=>{
           carrinhoCompras=[]; renderCarrinho(); Swal.fire({icon: 'success', title: 'Pedido salvo', timer: 1500, showConfirmButton: false});
           db.collection("config").doc("empresa").update({"contador": Number(document.getElementById('numPedido').value)});
       });
   }
 
-  // ================= CAIXA E RELATORIOS =================
+  // ================= CAIXA, RELATORIO E IMPRESSÃO =================
   function abrirRelatorios() { document.getElementById('areaSangria').style.display = 'none'; filtrarRelatorio('hoje', document.querySelector('.tab-btn')); document.getElementById('modalRelatorios').style.display = 'flex'; }
 
   function filtrarRelatorio(periodo, btn) {
@@ -1073,7 +1110,7 @@
   }
 
   function lancarSangria() {
-      let v = Number(document.getElementById('valSangria').value.replace(',','.')); let m = document.getElementById('obsSangria').value;
+      let vStr = document.getElementById('valSangria').value.replace(',','.'); let v = Number(vStr); let m = document.getElementById('obsSangria').value;
       if(!v || v <= 0 || !m) return Swal.fire('Erro', 'Dados inválidos', 'error');
       db.collection("caixa").add({ data: new Date().toISOString(), valor: v, metodo: 'DINHEIRO', tipo: 'SAIDA', obs: m }).then(() => {
           document.getElementById('valSangria').value = ''; document.getElementById('obsSangria').value = ''; document.getElementById('areaSangria').style.display = 'none'; Swal.fire({icon:'success', title:'Salvo', timer:1000, showConfirmButton:false}); filtrarRelatorio(document.querySelector('.tab-btn.active').innerText.toLowerCase() === 'hoje' ? 'hoje' : 'mes', document.querySelector('.tab-btn.active')); 
@@ -1122,9 +1159,8 @@
   function renderProdutosModal() { let t = document.getElementById('buscaProdutoModal').value.toLowerCase(); let html = ''; catalogo.filter(p => p.nome.toLowerCase().includes(t)).forEach(p => { html += `<div style="display:flex; justify-content:space-between; background:#222; padding:15px; margin-bottom:8px; border-radius:10px; border:1px solid #444; align-items:center;"><div><div style="font-weight:900; font-size:16px; color:#fff;">${p.nome}</div><div style="font-size:11px; color:#aaa; font-style:italic;">${p.ingredientes || ''}</div><div style="color:#66BB6A; font-weight:bold; font-size:14px; margin-top:5px;">${formatarMoeda(p.valor)}</div></div><button class="dark" onclick="selecionarProduto('${p.nome}', ${p.valor}, '${p.ingredientes || ''}')" style="background:#FFCA28; color:#000; padding:10px 20px; font-size:14px;">➕</button></div>`; }); document.getElementById('listaProdutosModal').innerHTML = html; }
   function selecionarProduto(n, v, i) { document.getElementById('descricao').value = n; document.getElementById('valorUnitario').value = v; document.getElementById('displayIngredientes').innerText = i; document.getElementById('modalSelecaoProdutos').style.display = 'none'; }
   document.getElementById('logoInput').addEventListener('change', function(e) { let file = e.target.files[0]; if(!file) return; let reader = new FileReader(); reader.onload = function(event) { let img = new Image(); img.onload = function() { let c = document.createElement('canvas'); let ctx = c.getContext('2d'); let scale = 300 / img.width; c.width = 300; c.height = img.height * scale; ctx.drawImage(img, 0, 0, c.width, c.height); let base64 = c.toDataURL('image/jpeg', 0.8); db.collection("config").doc("empresa").set({logo: base64}, {merge:true}); Swal.fire('Logo Atualizada!', '', 'success'); }; img.src = event.target.result; }; reader.readAsDataURL(file); });
-  function selecionarPerfil(p) { document.getElementById('step-1').style.display='none'; document.getElementById('step-2').style.display='block'; }
+  function selecionarPerfil(p) { document.getElementById('step-1').style.display='none'; document.getElementById('step-2').style.display='block'; document.getElementById('msgLogin').innerText=''; }
   function voltarLogin() { document.getElementById('step-1').style.display='block'; document.getElementById('step-2').style.display='none'; document.getElementById('msgLogin').innerText=''; }
-  function logout() { auth.signOut().then(()=>{ window.location.reload(); }); }
   function salvarDadosEmpresa() { let n=document.getElementById('confEmpNome').value; let e=document.getElementById('confEmpEnd').value; let t=document.getElementById('confEmpTel').value; db.collection("config").doc("empresa").set({ nome: n, end: e, tel: t }, {merge: true}).then(() => Swal.fire('Configurações Salvas!','','success')); }
   function editarDadosCliente(id) { let c = clientes.find(x => x.id === id); let novoNome = prompt("Deseja alterar o NOME?", c.nome); if(novoNome && novoNome.trim() !== '') { db.collection("clientes").doc(id).update({nome: novoNome.toUpperCase()}).then(() => Swal.fire('Nome alterado!', '', 'success')); } }
   function compartilharZap(id) { let c = clientes.find(x => x.id === id); if(c && c.telefone) { let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}*.\n\nSeu pedido está registrado.`; window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); } else { Swal.fire('Aviso', 'Sem telefone.', 'info'); } }
