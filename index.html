@@ -115,6 +115,12 @@
   .item-val { font-size: 16px; font-weight: bold; color: var(--success); }
   .btn-item-action { padding: 10px 15px !important; font-size: 16px !important; font-weight: 900 !important; margin-left: 5px; border-radius: 8px; }
 
+  /* PAGINAÇÃO */
+  .paginacao-container { display: flex; justify-content: center; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
+  .page-btn { background: #2D1B15; border: 1px solid #5D4037; color: #aaa; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+  .page-btn.active { background: var(--accent); color: #3E2723; border-color: var(--accent); }
+  .page-btn:hover:not(.active) { background: #4E342E; color: #fff; }
+
   /* KDS CARD */
   .kds-card { background: #fff; color: #000; padding: 15px; border-radius: 12px; border-top: 6px solid #FFCA28; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
   .kds-item-row { border-bottom: 1px dashed #ccc; padding: 8px 0; }
@@ -129,7 +135,7 @@
   @media print {
     body * { visibility: hidden !important; }
     #printOverlay, #printOverlay * { visibility: visible !important; }
-    #printOverlay { display: flex !important; position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; margin: 0; padding: 0; }
+    #printOverlay { display: block !important; position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; margin: 0; padding: 0; }
     .print-controls { display: none !important; }
     @page { margin: 0; size: auto; }
   }
@@ -225,7 +231,7 @@
   </div>
 
   <details class="card admin-only" style="padding:10px;">
-      <summary style="cursor:pointer; color:#D7CCC8; font-weight:bold; font-size:14px; padding:5px;">⚙️ CONFIGURAÇÕES & CARDÁPIO</summary>
+      <summary style="cursor:pointer; color:#D7CCC8; font-weight:bold; font-size:14px; padding:5px;">⚙️ CONFIGURAÇÕES & BACKUP</summary>
       <div style="margin-top:15px; display:flex; flex-wrap:wrap; gap:15px;">
           <div style="flex:1; min-width:250px;">
               <h4 style="color:var(--accent); margin-top:0;">🏢 Empresa e Logo</h4>
@@ -240,21 +246,34 @@
               <button class="dark" onclick="abrirModalUsuario()" style="width:100%; padding:15px;">👥 CRIAR ACESSO (COZINHA)</button>
           </div>
           
-          <div style="flex:1; min-width:250px; background:#2D1B15; padding:15px; border-radius:10px; border:1px solid #5D4037;">
-              <h4 style="color:var(--success); margin-top:0;">📦 Adicionar Produto</h4>
-              <input type="text" id="catNome" placeholder="Nome do Produto (Ex: Pastel Carne)" style="width:100%; margin-bottom:10px;">
-              <input type="number" id="catValor" placeholder="Preço R$" style="width:100%; margin-bottom:10px;">
-              
-              <div style="background:#3E2723; padding:10px; border-radius:8px; margin-bottom:15px;">
-                  <label style="font-size:11px; color:#aaa;">Ingredientes Extras (opcional):</label>
-                  <div style="display:flex; gap:5px; margin-top:5px;">
-                      <input type="text" id="novoIngrediente" placeholder="Ex: Carne, Ovo..." style="margin-bottom:0;">
-                      <button type="button" class="dark" onclick="addIngredienteTemp()" style="width:50px; font-size:18px; padding:0;">+</button>
+          <div style="flex:1; min-width:250px;">
+              <div style="background:#2D1B15; padding:15px; border-radius:10px; border:1px solid #5D4037; margin-bottom:15px;">
+                  <h4 style="color:var(--success); margin-top:0;">📦 Adicionar Produto</h4>
+                  <input type="text" id="catNome" placeholder="Nome (Ex: Pastel Carne)" style="width:100%; margin-bottom:10px;">
+                  <input type="number" id="catValor" placeholder="Preço R$" style="width:100%; margin-bottom:10px;">
+                  
+                  <div style="background:#3E2723; padding:10px; border-radius:8px; margin-bottom:15px;">
+                      <label style="font-size:11px; color:#aaa;">Ingredientes Extras (opcional):</label>
+                      <div style="display:flex; gap:5px; margin-top:5px;">
+                          <input type="text" id="novoIngrediente" placeholder="Ex: Carne, Ovo..." style="margin-bottom:0;">
+                          <button type="button" class="dark" onclick="addIngredienteTemp()" style="width:50px; font-size:18px; padding:0;">+</button>
+                      </div>
+                      <div id="listaIngredientesTemp" style="margin-top:8px;"></div>
                   </div>
-                  <div id="listaIngredientesTemp" style="margin-top:8px;"></div>
+                  <button class="success" onclick="salvarCatalogo()" style="width:100%; padding:15px; font-size:14px;">➕ CADASTRAR PRODUTO</button>
               </div>
 
-              <button class="success" onclick="salvarCatalogo()" style="width:100%; padding:15px; font-size:14px;">➕ CADASTRAR PRODUTO</button>
+              <div style="background:#2D1B15; padding:15px; border-radius:10px; border:1px dashed #FFCA28;">
+                  <h4 style="color:#FFCA28; margin-top:0;">💽 Backup do Sistema</h4>
+                  <p style="font-size:11px; color:#aaa; margin-bottom:10px;">O sistema salva na nuvem automaticamente. Use os botões abaixo se quiser um arquivo de segurança no seu computador.</p>
+                  <button class="warning" onclick="baixarBackup()" style="width:100%; padding:12px; margin-bottom:10px; font-weight:bold;">⬇️ BAIXAR BACKUP (PC/CELULAR)</button>
+                  
+                  <div style="border-top:1px solid #444; margin:10px 0; padding-top:10px;">
+                      <label style="font-size:11px; color:#aaa;">Restaurar Arquivo (.json):</label>
+                      <input type="file" id="inputBackup" accept=".json" style="margin-bottom:5px;">
+                      <button class="danger" onclick="restaurarBackup()" style="width:100%; padding:10px;">🔄 RESTAURAR ARQUIVO</button>
+                  </div>
+              </div>
           </div>
       </div>
   </details>
@@ -349,9 +368,10 @@
         <div class="tab-lista" id="tabListaDelivery" onclick="setFiltroLista('delivery')">🛵 DELIVERY</div>
     </div>
     
-    <input type="search" id="searchBox" placeholder="🔍 Buscar Cliente ou Mesa..." onkeyup="render()" autocomplete="new-password" name="busca_cliente_evitar_email" style="padding:15px; font-size:16px; margin-bottom:15px;" readonly>
+    <input type="search" id="searchBox" placeholder="🔍 Buscar Cliente ou Mesa..." onkeyup="resetPaginacaoERender()" autocomplete="new-password" name="busca_cliente_evitar_email" style="padding:15px; font-size:16px; margin-bottom:15px;" readonly>
     
     <div id="listaClientes"></div>
+    <div id="paginacaoContainer" class="paginacao-container"></div>
   </div>
 
 </div>
@@ -466,6 +486,10 @@
   let carrinhoCompras = []; let ingredientesTemp = [];
   let payRef = null; let caixaTotal = []; 
   let roleUsuarioAtual = 'admin'; let filtroListaAtual = 'todos';
+  
+  // Variáveis para Paginação
+  let paginaAtual = 1;
+  const ITENS_POR_PAGINA = 10;
 
   // ================= SISTEMA DE BEEP (APITO OFFLINE) =================
   function tocarBeep() {
@@ -489,11 +513,7 @@
   // ================= SISTEMA DE ALERTAS FIXOS =================
   function mostrarAlertaPronto(nomeCliente, cid) {
       const area = document.getElementById('notificationArea');
-      
-      // TRAVA DE SEGURANÇA: Só cria o alerta se a mesa ainda não estiver apitando na tela
-      if(document.getElementById('alerta-' + cid)) {
-          return false; // Retorna falso: não cria duplicado e não apita
-      }
+      if(document.getElementById('alerta-' + cid)) return false; 
 
       const alertDiv = document.createElement('div');
       alertDiv.id = 'alerta-' + cid; 
@@ -506,7 +526,7 @@
           <button onclick="this.parentElement.remove()" class="btn-fechar-alerta">OK, Entregue</button>
       `;
       area.appendChild(alertDiv);
-      return true; // Retorna true: aviso novo criado, manda apitar!
+      return true; 
   }
 
   // ================= INICIALIZAÇÃO E SESSÃO =================
@@ -531,7 +551,6 @@
       setTimeout(() => { document.getElementById('searchBox').removeAttribute('readonly'); }, 500);
   });
 
-  // FUNÇÃO DE CARREGAR O SISTEMA PARA NÃO TRAVAR O LOGIN
   function carregarSistema(user) {
       db.collection("usuarios").doc(user.uid).get().then((doc) => {
           roleUsuarioAtual = (doc.exists) ? doc.data().perfil : 'admin';
@@ -543,15 +562,13 @@
           document.getElementById('loginOverlay').style.display = 'none';
           iniciarSync();
       }).catch(err => {
-          // Se der erro no banco, carrega o admin para não travar
           document.getElementById('loginOverlay').style.display = 'none';
           iniciarSync();
       });
   }
 
-  // TENTA CONFIGURAR SESSÃO, SE FALHAR, SEGUE A VIDA
   auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch((error) => {
-      console.log("Aviso: Navegador bloqueou sessão rígida. Rodando padrão.");
+      console.log("Aviso: Navegador bloqueou sessão rígida.");
   });
 
   auth.onAuthStateChanged((user) => {
@@ -563,7 +580,6 @@
       }
   });
 
-  // NOVO MOTOR DE LOGIN TOTALMENTE DESTRAVADO
   function fazerLogin(event) { 
       if(event) event.preventDefault();
       
@@ -572,7 +588,7 @@
       
       const msgBox = document.getElementById('msgLogin');
       msgBox.innerText = "Carregando...";
-      msgBox.style.color = "#FFCA28"; // Amarelo carregando
+      msgBox.style.color = "#FFCA28"; 
       
       if(document.getElementById('chkLembrarEmail').checked) {
           localStorage.setItem('naty_email_login', email);
@@ -582,10 +598,10 @@
       
       auth.signInWithEmailAndPassword(email, pass).then((userCred) => {
           msgBox.innerText = "Login aprovado! Entrando...";
-          msgBox.style.color = "#66BB6A"; // Verde
+          msgBox.style.color = "#66BB6A"; 
           carregarSistema(userCred.user);
       }).catch(err => {
-          msgBox.style.color = "#EF5350"; // Vermelho erro
+          msgBox.style.color = "#EF5350"; 
           if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
               msgBox.innerText = "Usuário não encontrado ou senha incorreta.";
           } else {
@@ -594,7 +610,6 @@
       }); 
   }
 
-  // BOTÃO DE EMERGÊNCIA (RESET)
   function resetarApp() {
       auth.signOut().then(() => {
           localStorage.clear();
@@ -662,11 +677,93 @@
       });
       db.collection("caixa").onSnapshot(snap => {
           caixaTotal = [];
-          snap.forEach(d => {
-              let item = {id: d.id, ...d.data()};
-              caixaTotal.push(item);
-          });
+          snap.forEach(d => { caixaTotal.push({id: d.id, ...d.data()}); });
           atualizarDashboard();
+      });
+  }
+
+  // ================= SISTEMA DE BACKUP (DOWNLOAD E UPLOAD JSON) =================
+  function baixarBackup() {
+      Swal.fire({title: 'Gerando Backup...', text: 'Isso pode levar alguns segundos.', didOpen: () => Swal.showLoading()});
+      
+      // Monta o arquivo
+      let backupData = {
+          clientes: clientes,
+          catalogo: catalogo,
+          caixa: caixaTotal,
+          config: empDados,
+          dataBackup: new Date().toISOString()
+      };
+      
+      let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
+      let dlAnchorElem = document.createElement('a');
+      dlAnchorElem.setAttribute("href", dataStr);
+      dlAnchorElem.setAttribute("download", "backup_trailer_naty_" + new Date().toISOString().split('T')[0] + ".json");
+      dlAnchorElem.click();
+      
+      Swal.fire('Backup Salvo!', 'O arquivo JSON foi baixado para o seu dispositivo.', 'success');
+  }
+
+  function restaurarBackup() {
+      let input = document.getElementById('inputBackup');
+      let file = input.files[0];
+      
+      if(!file) return Swal.fire('Erro', 'Por favor, selecione um arquivo JSON primeiro.', 'error');
+
+      Swal.fire({
+          title: 'ATENÇÃO!',
+          text: "Restaurar este backup irá sobrescrever as configurações atuais e adicionar os dados salvos. Tem certeza?",
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#EF5350',
+          confirmButtonText: 'Sim, Restaurar Arquivo'
+      }).then((result) => {
+          if (result.isConfirmed) {
+              Swal.fire({title: 'Restaurando dados...', didOpen: () => Swal.showLoading()});
+              
+              let reader = new FileReader();
+              reader.onload = async function(e) {
+                  try {
+                      let backup = JSON.parse(e.target.result);
+                      
+                      // Restaura Clientes
+                      if(backup.clientes) {
+                          backup.clientes.forEach(c => {
+                              let docId = c.id; 
+                              delete c.id; // limpa o ID do payload
+                              db.collection("clientes").doc(docId).set(c);
+                          });
+                      }
+                      
+                      // Restaura Catálogo
+                      if(backup.catalogo) {
+                          backup.catalogo.forEach(p => {
+                              let docId = p.id; delete p.id;
+                              db.collection("catalogo").doc(docId).set(p);
+                          });
+                      }
+                      
+                      // Restaura Caixa
+                      if(backup.caixa) {
+                          backup.caixa.forEach(m => {
+                              let docId = m.id; delete m.id;
+                              db.collection("caixa").doc(docId).set(m);
+                          });
+                      }
+                      
+                      // Restaura Config
+                      if(backup.config) {
+                          db.collection("config").doc("empresa").set(backup.config, {merge: true});
+                      }
+
+                      Swal.fire('Restauração Concluída!', 'Os dados do sistema foram atualizados.', 'success');
+                      input.value = ''; // limpa o input
+                  } catch(err) {
+                      Swal.fire('Erro no Arquivo', 'O arquivo selecionado não é um backup válido.', 'error');
+                  }
+              }
+              reader.readAsText(file);
+          }
       });
   }
 
@@ -742,14 +839,27 @@
       db.collection("clientes").doc(cid).update({itens});
   }
 
-  // ================= FILTRO DE ABAS & LIMPAR MESA =================
+  // ================= FILTRO DE ABAS, BUSCA E PAGINAÇÃO =================
   function setFiltroLista(tipo) {
       filtroListaAtual = tipo;
       document.querySelectorAll('.tab-lista').forEach(b => b.classList.remove('active'));
       if(tipo==='todos') document.getElementById('tabListaTodos').classList.add('active');
       if(tipo==='mesa') document.getElementById('tabListaMesa').classList.add('active');
       if(tipo==='delivery') document.getElementById('tabListaDelivery').classList.add('active');
+      
+      resetPaginacaoERender();
+  }
+  
+  function resetPaginacaoERender() {
+      paginaAtual = 1;
       render();
+  }
+  
+  function mudarPagina(novaPag) {
+      paginaAtual = novaPag;
+      render();
+      // Scroll suave para o topo da lista
+      document.getElementById('searchBox').scrollIntoView({ behavior: 'smooth' });
   }
 
   function toggleFormCadastro() {
@@ -770,16 +880,30 @@
   }
 
   function render() {
-      let lista = document.getElementById('listaClientes'); lista.innerHTML = '';
+      let lista = document.getElementById('listaClientes'); 
+      let paginacaoBox = document.getElementById('paginacaoContainer');
+      lista.innerHTML = ''; paginacaoBox.innerHTML = '';
+      
       let termo = document.getElementById('searchBox').value.toLowerCase();
       
+      // 1. Filtrar Lista Geral
       let listaFiltrada = clientes.filter(c => {
           let matchFiltro = (filtroListaAtual === 'todos') || (c.tipoCadastro === filtroListaAtual) || (!c.tipoCadastro && filtroListaAtual === 'delivery');
           let matchBusca = c.nome.toLowerCase().includes(termo);
           return matchFiltro && matchBusca;
       });
 
-      listaFiltrada.forEach(c => {
+      // 2. Calcular Paginação
+      let totalPaginas = Math.ceil(listaFiltrada.length / ITENS_POR_PAGINA);
+      if (paginaAtual > totalPaginas && totalPaginas > 0) paginaAtual = totalPaginas;
+      if (paginaAtual < 1) paginaAtual = 1;
+
+      let inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
+      let fim = inicio + ITENS_POR_PAGINA;
+      let clientesDaPagina = listaFiltrada.slice(inicio, fim);
+
+      // 3. Renderizar Clientes da Página Atual
+      clientesDaPagina.forEach(c => {
           let saldoCli = c.itens.reduce((acc, i) => acc + (Number(i.valor)||0) - (Number(i.pagoValor)||0), 0);
           let itensHtml = c.itens.map((i, idx) => {
               let pg = Number(i.pagoValor) || 0; let resta = i.valor - pg;
@@ -825,6 +949,22 @@
               <table style="width:100%">${itensHtml}</table>
           </div>`;
       });
+      
+      // 4. Renderizar Botões de Paginação se houver mais de 1 página
+      if(totalPaginas > 1) {
+          let botoesHtml = '';
+          
+          if(paginaAtual > 1) botoesHtml += `<button class="page-btn" onclick="mudarPagina(${paginaAtual - 1})">⬅ Anterior</button>`;
+          
+          for(let i = 1; i <= totalPaginas; i++) {
+              let activeClass = (i === paginaAtual) ? 'active' : '';
+              botoesHtml += `<button class="page-btn ${activeClass}" onclick="mudarPagina(${i})">${i}</button>`;
+          }
+          
+          if(paginaAtual < totalPaginas) botoesHtml += `<button class="page-btn" onclick="mudarPagina(${paginaAtual + 1})">Próxima ➡</button>`;
+          
+          paginacaoBox.innerHTML = botoesHtml;
+      }
   }
 
   // ================= CADASTRO CLIENTE E PEDIDO =================
@@ -881,7 +1021,7 @@
       let desc = document.getElementById('descricao').value; let qtd = Number(document.getElementById('quantidade').value); let val = Number(document.getElementById('valorUnitario').value.replace(',','.'));
       if(!desc || val <= 0) return Swal.fire('Erro', 'Selecione um produto', 'error');
       
-      let item = { desc: desc, qtd: qtd, valor: val * qtd, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, ingredientes: document.getElementById('displayIngredientes').innerText, numPedido: document.getElementById('numPedido').value || 1, pago: false, pagoValor: 0, pronto: false, notificadoAdmin: true }; // Admin ja sabe pois ele lançou
+      let item = { desc: desc, qtd: qtd, valor: val * qtd, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, ingredientes: document.getElementById('displayIngredientes').innerText, numPedido: document.getElementById('numPedido').value || 1, pago: false, pagoValor: 0, pronto: false, notificadoAdmin: true }; 
       carrinhoCompras.push(item); renderCarrinho();
       document.getElementById('descricao').value = ''; document.getElementById('quantidade').value = '1'; document.getElementById('valorUnitario').value = ''; document.getElementById('displayIngredientes').innerText = '';
   }
@@ -902,7 +1042,7 @@
       });
   }
 
-  // ================= CAIXA, RELATORIO E IMPRESSÃO =================
+  // ================= CAIXA E RELATORIOS =================
   function abrirRelatorios() { document.getElementById('areaSangria').style.display = 'none'; filtrarRelatorio('hoje', document.querySelector('.tab-btn')); document.getElementById('modalRelatorios').style.display = 'flex'; }
 
   function filtrarRelatorio(periodo, btn) {
@@ -983,8 +1123,8 @@
   function selecionarProduto(n, v, i) { document.getElementById('descricao').value = n; document.getElementById('valorUnitario').value = v; document.getElementById('displayIngredientes').innerText = i; document.getElementById('modalSelecaoProdutos').style.display = 'none'; }
   document.getElementById('logoInput').addEventListener('change', function(e) { let file = e.target.files[0]; if(!file) return; let reader = new FileReader(); reader.onload = function(event) { let img = new Image(); img.onload = function() { let c = document.createElement('canvas'); let ctx = c.getContext('2d'); let scale = 300 / img.width; c.width = 300; c.height = img.height * scale; ctx.drawImage(img, 0, 0, c.width, c.height); let base64 = c.toDataURL('image/jpeg', 0.8); db.collection("config").doc("empresa").set({logo: base64}, {merge:true}); Swal.fire('Logo Atualizada!', '', 'success'); }; img.src = event.target.result; }; reader.readAsDataURL(file); });
   function selecionarPerfil(p) { document.getElementById('step-1').style.display='none'; document.getElementById('step-2').style.display='block'; }
-  function voltarLogin() { document.getElementById('step-1').style.display='block'; document.getElementById('step-2').style.display='none'; }
-  function logout() { auth.signOut(); }
+  function voltarLogin() { document.getElementById('step-1').style.display='block'; document.getElementById('step-2').style.display='none'; document.getElementById('msgLogin').innerText=''; }
+  function logout() { auth.signOut().then(()=>{ window.location.reload(); }); }
   function salvarDadosEmpresa() { let n=document.getElementById('confEmpNome').value; let e=document.getElementById('confEmpEnd').value; let t=document.getElementById('confEmpTel').value; db.collection("config").doc("empresa").set({ nome: n, end: e, tel: t }, {merge: true}).then(() => Swal.fire('Configurações Salvas!','','success')); }
   function editarDadosCliente(id) { let c = clientes.find(x => x.id === id); let novoNome = prompt("Deseja alterar o NOME?", c.nome); if(novoNome && novoNome.trim() !== '') { db.collection("clientes").doc(id).update({nome: novoNome.toUpperCase()}).then(() => Swal.fire('Nome alterado!', '', 'success')); } }
   function compartilharZap(id) { let c = clientes.find(x => x.id === id); if(c && c.telefone) { let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}*.\n\nSeu pedido está registrado.`; window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); } else { Swal.fire('Aviso', 'Sem telefone.', 'info'); } }
