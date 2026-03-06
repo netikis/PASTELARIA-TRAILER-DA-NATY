@@ -16,6 +16,7 @@
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
 <style>
   :root {
@@ -90,7 +91,7 @@
   /* BOTÕES */
   button { padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; border: none; color: #fff; font-size: 13px; transition: 0.2s; text-transform: uppercase; }
   button:active { transform: scale(0.96); }
-  .primary { background: var(--accent); color: #3E2723; } .success { background: var(--success); } .danger { background: var(--danger); } .dark { background: #5D4037; } .warning { background: var(--warning); color: #3E2723; }
+  .primary { background: #29B6F6; color: #000; } .success { background: var(--success); } .danger { background: var(--danger); } .dark { background: #5D4037; } .warning { background: var(--warning); color: #3E2723; }
 
   /* HEADER */
   .header { display: flex; justify-content: space-between; align-items: center; background: rgba(62, 39, 35, 0.95); padding: 10px 15px; position: sticky; top: 0; z-index: 100; border-bottom: 2px solid var(--accent); backdrop-filter: blur(10px); }
@@ -135,10 +136,10 @@
   #printOverlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: #fff; z-index: 9999999; overflow-y: auto; justify-content: center; }
   @media print {
     body * { visibility: hidden !important; }
-    #printOverlay, #printOverlay * { visibility: visible !important; }
+    #printOverlay, #printOverlay * { visibility: visible !important; color: #000 !important; }
     #printOverlay { display: block !important; position: absolute; left: 0; top: 0; width: 100%; background: #fff !important; margin: 0; padding: 0; }
     .print-controls { display: none !important; }
-    @page { margin: 0; size: auto; }
+    @page { margin: 0.5cm; size: auto; }
   }
   
   /* LOGIN STYLE */
@@ -170,7 +171,7 @@
     <div class="print-controls" style="position:fixed; top:20px; right:20px; z-index:10000000;">
         <button class="danger" onclick="fecharImpressao()" style="padding:15px 30px; font-size:16px; box-shadow:0 5px 15px rgba(0,0,0,0.5); font-weight:900;">❌ FECHAR IMPRESSÃO</button>
     </div>
-    <div id="printContent" style="width:100%; display:flex; justify-content:center; padding-top:30px;"></div>
+    <div id="printContent" style="width:100%; display:flex; justify-content:center; padding-top:30px; overflow-y:auto; padding-bottom:50px;"></div>
 </div>
 
 <div id="loginOverlay">
@@ -179,7 +180,7 @@
     <h2 class="titulo" style="font-size:32px; margin-bottom:5px;">Trailer da Naty</h2>
     
     <div id="step-1" style="margin-top:20px;">
-        <button class="primary" onclick="selecionarPerfil('admin')" style="width:100%; margin-bottom:10px; padding:15px; font-size:14px;">🛡️ GERÊNCIA (CAIXA)</button>
+        <button class="primary" onclick="selecionarPerfil('admin')" style="width:100%; margin-bottom:10px; padding:15px; font-size:14px; background:#8D6E63; color:#fff;">🛡️ GERÊNCIA (CAIXA)</button>
         <button class="dark" onclick="selecionarPerfil('func')" style="width:100%; padding:15px; font-size:14px;">👨‍🍳 COZINHA (PRODUÇÃO)</button>
     </div>
     
@@ -232,8 +233,8 @@
           <div style="font-size:11px; color:#aaa; font-weight:bold;">CAIXA (RECEBIDO)</div>
           <div id="dashRecebido" style="font-size:18px; font-weight:900; color:#FFF;">R$ 0,00</div>
       </div>
-      <button class="primary" onclick="abrirRelatorios()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px;">📊 RELATÓRIO<br>FINANCEIRO</button>
-      <button class="dark" onclick="abrirGraficos()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; background:#29B6F6; color:#000; font-weight:900;">📈 PRODUTOS<br>VENDIDOS</button>
+      <button class="primary" onclick="abrirRelatorios()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; font-weight:bold;">📊 RELATÓRIO<br>FINANCEIRO</button>
+      <button class="dark" onclick="abrirGraficos()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; background:#FFCA28; color:#000; font-weight:900;">📈 GRÁFICO<br>PRODUTOS</button>
   </div>
 
   <details class="card admin-only" style="padding:10px;">
@@ -314,7 +315,7 @@
         <div class="row-inputs">
             <div style="display:flex; flex:1; gap:0;">
                 <input type="text" id="cep" placeholder="CEP" style="border-radius:8px 0 0 8px; border-right:none; min-width:0;">
-                <button class="primary" onclick="buscarCep()" style="border-radius:0 8px 8px 0; padding:0 15px; font-size:16px;">🔍</button>
+                <button class="primary" style="background:#8D6E63; color:#fff; border-radius:0 8px 8px 0; padding:0 15px; font-size:16px;" onclick="buscarCep()">🔍</button>
             </div>
             <input type="text" id="cpf_cnpj" placeholder="CPF/CNPJ (Opcional)" style="flex:1;">
         </div>
@@ -325,7 +326,7 @@
         <input type="text" id="cidade" placeholder="Cidade/UF (Automático)" readonly style="width:100%; background:#222; color:#aaa; margin-bottom:10px;">
     </div>
     
-    <button class="primary" onclick="adicionarCliente()" style="width:100%; padding:15px; font-size:15px; margin-top:10px;">CADASTRAR</button>
+    <button class="primary" style="background:#8D6E63; color:#fff;" onclick="adicionarCliente()" style="width:100%; padding:15px; font-size:15px; margin-top:10px;">CADASTRAR</button>
   </div>
 
   <datalist id="opcoesCatalogo"></datalist>
@@ -350,7 +351,7 @@
     </select>
 
     <div style="background:#2D1B15; padding:15px; border-radius:10px; border:1px dashed #5D4037;">
-        <button class="primary" onclick="abrirModalSelecaoProdutos()" style="width:100%; margin-bottom:12px; padding:12px; font-size:14px;">🔍 BUSCAR PRODUTO NO CARDÁPIO</button>
+        <button class="primary" style="background:#8D6E63; color:#fff;" onclick="abrirModalSelecaoProdutos()" style="width:100%; margin-bottom:12px; padding:12px; font-size:14px;">🔍 BUSCAR PRODUTO NO CARDÁPIO</button>
         <div class="row-inputs">
             <input type="text" id="descricao" placeholder="Produto selecionado..." readonly style="flex:3; font-weight:bold; color:var(--accent);">
             <input type="number" id="quantidade" value="1" placeholder="Qtd" style="flex:1; text-align:center; font-weight:bold;">
@@ -463,14 +464,17 @@
 
 <div class="modal" id="modalRelatorios">
     <div class="modal-content">
-        <h3 style="text-align:center; font-size:22px; color:var(--accent);">📊 Relatório de Caixa</h3>
+        <h3 style="text-align:center; font-size:22px; color:var(--accent);">📊 Relatório Financeiro e Vendas</h3>
         <div style="display:flex; margin-bottom:20px; border-radius:10px; overflow:hidden; gap:5px;">
             <div class="tab-btn active" onclick="filtrarRelatorio('hoje', this)">HOJE</div>
             <div class="tab-btn" onclick="filtrarRelatorio('semana', this)">7 DIAS</div>
             <div class="tab-btn" onclick="filtrarRelatorio('mes', this)">MÊS</div>
         </div>
+
+        <button class="primary" onclick="imprimirRelatorioCaixa()" style="width:100%; padding:15px; font-size:14px; margin-bottom:15px; font-weight:900; box-shadow: 0 4px 6px rgba(0,0,0,0.4);">🖨️ SALVAR PDF / IMPRIMIR RELATÓRIO</button>
         
         <div style="background:#222; padding:20px; border-radius:15px; margin-bottom:15px; border:1px solid #444;">
+            <h4 style="margin: 0 0 10px 0; color: #fff; font-size: 16px; text-align: center; border-bottom: 1px dashed #444; padding-bottom: 8px;">💰 Entradas e Saídas</h4>
             <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444; padding-bottom:10px; font-size:16px;">
                 <span>💵 Dinheiro:</span> <b id="relDinheiro" style="color:#66BB6A">R$ 0,00</b>
             </div>
@@ -484,8 +488,14 @@
                 <span>📱 QR Code:</span> <b id="relQrCode" style="color:#AB47BC">R$ 0,00</b>
             </div>
             <div style="display:flex; justify-content:space-between; padding-top:10px; color:#EF5350; font-size:16px;">
-                <span>🔻 Saídas (Gastos Total):</span> <b id="relSangria">R$ 0,00</b>
+                <span>🔻 Saídas (Gastos):</span> <b id="relSangria">R$ 0,00</b>
             </div>
+        </div>
+
+        <div id="areaProdutosRelatorio" style="background:#222; padding:15px; border-radius:15px; margin-bottom:15px; border:1px solid #444;">
+            <h4 style="margin: 0 0 10px 0; color: #29B6F6; font-size: 16px; text-align: center; border-bottom: 1px dashed #444; padding-bottom: 8px;">🍔 Produtos Vendidos no Período</h4>
+            <div id="listaProdutosRelatorio" style="font-size: 14px; max-height: 150px; overflow-y: auto;">
+                </div>
         </div>
         
         <div id="listaSangriasDetalhada" style="margin-bottom: 20px; max-height: 150px; overflow-y: auto; background: #2D1B15; padding: 10px; border-radius: 10px; border: 1px solid #444; display: none;">
@@ -546,7 +556,7 @@
   let paginaAtual = 1;
   const ITENS_POR_PAGINA = 10;
 
-  // ================= SISTEMA DE DATAS (CORREÇÃO DE FUSO HORÁRIO) =================
+  // ================= SISTEMA DE DATAS =================
   function obterDataLocal() {
       let d = new Date();
       let z = d.getTimezoneOffset() * 60000;
@@ -1056,6 +1066,8 @@
   function filtrarRelatorio(periodo, btn) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); if(btn) btn.classList.add('active');
       
+      window.periodoRelatorioAtual = periodo;
+      
       let hoje = obterDataLocal();
       let filtroData = periodo === 'hoje' ? hoje : (periodo === 'mes' ? hoje.slice(0, 7) : "");
       
@@ -1078,6 +1090,117 @@
       if (totSaida > 0) { areaDetalhes.style.display = 'block'; divDetalhes.innerHTML = htmlSangrias; } else { areaDetalhes.style.display = 'none'; divDetalhes.innerHTML = ''; }
 
       document.getElementById('relDinheiro').innerText = formatarMoeda(totDin); document.getElementById('relPix').innerText = formatarMoeda(totPix); document.getElementById('relCartao').innerText = formatarMoeda(totCart); document.getElementById('relQrCode').innerText = formatarMoeda(totQr); document.getElementById('relSangria').innerText = formatarMoeda(totSaida); document.getElementById('relSaldoFinal').innerText = formatarMoeda((totDin + totPix + totCart + totQr) - totSaida);
+
+      let produtosVendidosNoPeriodo = {};
+      clientes.forEach(c => {
+          c.itens.forEach(i => {
+              let incluir = false;
+              if (periodo === 'hoje' && i.data === hoje) { incluir = true; }
+              if (periodo === 'mes' && i.data && i.data.startsWith(filtroData)) { incluir = true; }
+              if (periodo === 'semana' && i.data) {
+                  let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
+                  if (diff >= 0 && diff <= 7) { incluir = true; }
+              }
+              
+              if(incluir) {
+                  let nomeProduto = i.desc.trim().toUpperCase();
+                  if (!produtosVendidosNoPeriodo[nomeProduto]) { produtosVendidosNoPeriodo[nomeProduto] = 0; }
+                  produtosVendidosNoPeriodo[nomeProduto] += Number(i.qtd);
+              }
+          });
+      });
+
+      let htmlProdutos = '';
+      let totalItensVendido = 0;
+      let labelsProd = Object.keys(produtosVendidosNoPeriodo).sort((a,b) => produtosVendidosNoPeriodo[b] - produtosVendidosNoPeriodo[a]);
+      
+      labelsProd.forEach(l => {
+          let q = produtosVendidosNoPeriodo[l];
+          totalItensVendido += q;
+          htmlProdutos += `<div style="display:flex; justify-content:space-between; border-bottom:1px dashed #444; padding:5px 0; color:#ccc;"><span>${l}</span><b style="color:#FFF;">${q}x</b></div>`;
+      });
+
+      if(totalItensVendido === 0) { htmlProdutos = '<div style="text-align:center; color:#aaa; font-style:italic;">Nenhum produto vendido neste período.</div>'; }
+      document.getElementById('listaProdutosRelatorio').innerHTML = htmlProdutos;
+  }
+
+  // ================= SALVAR PDF AUTOMÁTICO =================
+  function imprimirRelatorioCaixa() {
+      let periodoStr = "Relatório de Vendas";
+      let hojeStr = obterDataLocal().split('-').reverse().join('/');
+      
+      if(window.periodoRelatorioAtual === 'hoje') periodoStr = "Relatório do Dia (" + hojeStr + ")";
+      if(window.periodoRelatorioAtual === 'semana') periodoStr = "Relatório dos Últimos 7 Dias";
+      if(window.periodoRelatorioAtual === 'mes') periodoStr = "Relatório do Mês (" + obterDataLocal().slice(0,7).split('-').reverse().join('/') + ")";
+
+      let vDin = document.getElementById('relDinheiro').innerText;
+      let vPix = document.getElementById('relPix').innerText;
+      let vCar = document.getElementById('relCartao').innerText;
+      let vQr = document.getElementById('relQrCode').innerText;
+      let vSai = document.getElementById('relSangria').innerText;
+      let vLiq = document.getElementById('relSaldoFinal').innerText;
+
+      let htmlProdutos = document.getElementById('listaProdutosRelatorio').innerHTML;
+      let htmlSaidas = document.getElementById('conteudoListaSangrias').innerHTML || '<div style="color:#000;">Nenhuma saída registrada.</div>';
+      let logoHtml = logoBase64 ? `<img src="${logoBase64}" style="width:100px; height:100px; border-radius:50%; margin-bottom:10px; object-fit:cover; border:2px solid #000;">` : '';
+
+      // Cria a estrutura visual exata que vai ser salva no PDF
+      let html = `
+          <div style="width: 100%; font-family: 'Courier New', monospace; color: #000; background: #fff; padding: 20px; box-sizing: border-box;">
+              <div style="text-align:center;">
+                  ${logoHtml}
+                  <h2 style="font-size:24px; font-weight:900; margin-bottom: 5px;">${empDados.nome}</h2>
+                  <h3 style="font-size:18px; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-top:0;">${periodoStr}</h3>
+              </div>
+
+              <h4 style="margin: 15px 0 5px 0; font-size:16px; text-transform:uppercase;">💰 RESUMO FINANCEIRO</h4>
+              <div style="display:flex; justify-content:space-between; font-size:16px; margin-bottom:3px;"><span>Dinheiro:</span> <b>${vDin}</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:16px; margin-bottom:3px;"><span>Pix:</span> <b>${vPix}</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:16px; margin-bottom:3px;"><span>Cartão:</span> <b>${vCar}</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:16px; margin-bottom:3px;"><span>QR Code:</span> <b>${vQr}</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:16px; margin-bottom:10px; color:#c00;"><span>Saídas:</span> <b>${vSai}</b></div>
+              
+              <div style="display:flex; justify-content:space-between; font-size:20px; font-weight:900; border-top: 1px solid #000; padding-top:5px;"><span>LÍQUIDO:</span> <span>${vLiq}</span></div>
+
+              <h4 style="margin: 20px 0 5px 0; font-size:16px; text-transform:uppercase; border-top: 2px dashed #000; padding-top: 10px;">🔻 DETALHE DE SAÍDAS</h4>
+              <div style="font-size:14px; margin-bottom: 10px;">
+                  ${htmlSaidas.replace(/color: #ccc;/g, 'color: #000;').replace(/color: #EF5350;/g, 'color: #000;')}
+              </div>
+
+              <h4 style="margin: 20px 0 5px 0; font-size:16px; text-transform:uppercase; border-top: 2px dashed #000; padding-top: 10px;">🍔 PRODUTOS VENDIDOS</h4>
+              <div style="font-size:16px; color:#000 !important;">
+                  ${htmlProdutos.replace(/color:#ccc;/g, 'color:#000;').replace(/color:#FFF;/g, 'color:#000;').replace(/color: #aaa;/g, 'color:#000;')}
+              </div>
+              
+              <div style="border-top:2px dashed #000; margin: 20px 0;"></div>
+              <div style="text-align:center; font-size:14px;">Gerado em: ${new Date().toLocaleString('pt-BR')}</div>
+          </div>
+      `;
+
+      // Aviso de que está baixando
+      Swal.fire({
+          title: 'Gerando PDF...',
+          text: 'Aguarde um momento enquanto preparamos seu arquivo.',
+          didOpen: () => { Swal.showLoading() }
+      });
+
+      let elementoHTML = document.createElement('div');
+      elementoHTML.innerHTML = html;
+
+      // Configurações do arquivo PDF
+      let opt = {
+        margin:       10,
+        filename:     'Relatorio_Trailer_Naty_' + hojeStr.replace(/\//g, '-') + '.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+
+      // Gera e faz o download automático
+      html2pdf().set(opt).from(elementoHTML).save().then(() => {
+          Swal.close();
+          Swal.fire('Pronto!', 'O PDF foi baixado para o seu computador/celular.', 'success');
+      });
   }
 
   function lancarSangria() {
@@ -1086,7 +1209,6 @@
       db.collection("caixa").add({ data: obterDataHoraLocal(), valor: v, metodo: 'DINHEIRO', tipo: 'SAIDA', obs: m }).then(() => { document.getElementById('valSangria').value = ''; document.getElementById('obsSangria').value = ''; document.getElementById('areaSangria').style.display = 'none'; Swal.fire({icon:'success', title:'Salvo', timer:1000, showConfirmButton:false}); filtrarRelatorio(document.querySelector('.tab-btn.active').innerText.toLowerCase() === 'hoje' ? 'hoje' : 'mes', document.querySelector('.tab-btn.active')); });
   }
 
-  // ===== NOVA FUNÇÃO GERAL PARA ZERAR RELATÓRIO (HOJE, SEMANA OU MÊS) =====
   function zerarRelatorio(periodo) {
       let msg = '';
       if (periodo === 'hoje') msg = 'o caixa de HOJE';
@@ -1118,10 +1240,7 @@
                       if (diff >= 0 && diff <= 7) { deletar = true; }
                   }
 
-                  if (deletar) {
-                      batch.delete(db.collection("caixa").doc(m.id));
-                      count++;
-                  }
+                  if (deletar) { batch.delete(db.collection("caixa").doc(m.id)); count++; }
               });
               
               if (count > 0) {
@@ -1129,9 +1248,7 @@
                       Swal.fire('Zerado!', `${count} registros financeiros foram apagados.`, 'success');
                       document.getElementById('modalRelatorios').style.display = 'none';
                   });
-              } else {
-                  Swal.fire('Aviso', `Não há nada registrado para ${msg} para ser apagado.`, 'info');
-              }
+              } else { Swal.fire('Aviso', `Não há nada registrado para ${msg} para ser apagado.`, 'info'); }
           }
       });
   }
