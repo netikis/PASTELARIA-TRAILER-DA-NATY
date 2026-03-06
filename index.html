@@ -242,9 +242,15 @@
               <input type="text" id="confEmpNome" placeholder="Nome do Local" style="margin-bottom:8px;">
               <input type="text" id="confEmpEnd" placeholder="Endereço" style="margin-bottom:8px;">
               <input type="text" id="confEmpTel" placeholder="Telefone" style="margin-bottom:8px;">
-              <label style="font-size:11px; color:#aaa;">Selecione a logo para salvar (Nuvem):</label>
+              
+              <h4 style="color:var(--success); margin-top:15px; margin-bottom:5px;">💠 Imagem do QR Code PIX</h4>
+              <label style="font-size:11px; color:#aaa; margin-top:5px; display:block;">Selecione a imagem do QR Code:</label>
+              <input type="file" id="qrInput" accept="image/*" style="margin-bottom:8px;">
+
+              <label style="font-size:11px; color:#aaa; margin-top:10px; display:block;">Selecione a logo para salvar (Nuvem):</label>
               <input type="file" id="logoInput" accept="image/*" style="margin-bottom:8px;">
-              <button class="primary" onclick="salvarDadosEmpresa()" style="width:100%; padding:15px; margin-bottom:10px;">💾 SALVAR DADOS</button>
+              
+              <button class="primary" onclick="salvarDadosEmpresa()" style="width:100%; padding:15px; margin-bottom:10px; margin-top:10px;">💾 SALVAR DADOS</button>
               
               <h4 style="color:#29B6F6; margin-top:10px; margin-bottom:5px;">🔐 Controle de Acessos</h4>
               <button class="dark" onclick="abrirModalUsuario()" style="width:100%; padding:15px;">👥 CRIAR ACESSO (COZINHA)</button>
@@ -404,11 +410,20 @@
         <h3 style="color:var(--success); font-size:22px;">Registrar Pagamento</h3>
         <p id="txtRestantePagamento" style="color:#aaa; margin-bottom:15px; font-size:16px;"></p>
         <input type="tel" id="valPagamentoInput" placeholder="Valor R$" style="font-size:28px; text-align:center; color:#fff; background:#222; border:2px solid var(--success); padding:15px; font-weight:bold; margin-bottom:20px;">
-        <p style="font-size:14px; color:#aaa; margin-bottom:10px;">Forma de Pagamento:</p>
+        
+        <button onclick="mostrarQrCodeFixo()" style="width:100%; padding:15px; font-size:16px; background:#AB47BC; color:#fff; font-weight:900; margin-bottom:20px; box-shadow:0 4px 10px rgba(0,0,0,0.5);">📷 MOSTRAR QR CODE PIX</button>
+        
+        <div id="areaQrCodeVisor" style="display:none; background:#fff; padding:15px; border-radius:10px; margin-bottom:20px;">
+            <img id="imgPixQr" src="" style="width:200px; height:200px; border:2px solid #AB47BC; padding:5px; border-radius:10px; object-fit: contain;">
+            <p style="color:#000; font-size:12px; font-weight:bold; margin-top:10px;" id="txtPixCopiaCola"></p>
+        </div>
+
+        <p style="font-size:14px; color:#aaa; margin-bottom:10px;">Ou registrar como:</p>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
             <button class="dark" onclick="processarPagamento('DINHEIRO')" style="padding:15px; font-size:14px;">💵 DINHEIRO</button>
-            <button class="dark" onclick="processarPagamento('PIX')" style="padding:15px; font-size:14px; background:#29B6F6; color:#000;">💠 PIX</button>
-            <button class="dark" onclick="processarPagamento('CARTAO')" style="padding:15px; font-size:14px; background:#FFCA28; color:#000; grid-column: span 2;">💳 CARTÃO</button>
+            <button class="dark" onclick="processarPagamento('PIX')" style="padding:15px; font-size:14px; background:#29B6F6; color:#000;">💠 PIX CHAVE</button>
+            <button class="dark" onclick="processarPagamento('CARTAO')" style="padding:15px; font-size:14px; background:#FFCA28; color:#000;">💳 CARTÃO</button>
+            <button class="dark" onclick="processarPagamento('QRCODE')" style="padding:15px; font-size:14px; background:#AB47BC; color:#FFF;">📱 PAGO VIA QR CODE</button>
         </div>
         <button class="danger" onclick="document.getElementById('modalPagamento').style.display='none'" style="width:100%; margin-top:20px; padding:15px;">CANCELAR</button>
     </div>
@@ -449,6 +464,9 @@
             </div>
             <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444; padding:10px 0; font-size:16px;">
                 <span>💳 Cartão:</span> <b id="relCartao" style="color:#FFCA28">R$ 0,00</b>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444; padding:10px 0; font-size:16px;">
+                <span>📱 QR Code:</span> <b id="relQrCode" style="color:#AB47BC">R$ 0,00</b>
             </div>
             <div style="display:flex; justify-content:space-between; padding-top:10px; color:#EF5350; font-size:16px;">
                 <span>🔻 Saídas (Gastos Total):</span> <b id="relSangria">R$ 0,00</b>
@@ -495,7 +513,7 @@
   const auth = firebase.auth();
   
   let clientes = []; let catalogo = []; 
-  let empDados = { nome: "Trailer da Naty", end: "", tel: "" };
+  let empDados = { nome: "Trailer da Naty", end: "", tel: "", qrCodeBase64: "" };
   let logoBase64 = localStorage.getItem('logoPastelaria') || "";
   let carrinhoCompras = []; let ingredientesTemp = [];
   let payRef = null; let caixaTotal = []; 
@@ -504,6 +522,17 @@
   
   let paginaAtual = 1;
   const ITENS_POR_PAGINA = 10;
+
+  // ================= SISTEMA EXIBIR QR CODE FIXO =================
+  function mostrarQrCodeFixo() {
+      if (!empDados.qrCodeBase64) {
+          return Swal.fire('Sem Imagem', 'Vá em "Configurações & Backup" e envie a imagem do seu QR Code primeiro.', 'warning');
+      }
+      
+      document.getElementById('imgPixQr').src = empDados.qrCodeBase64;
+      document.getElementById('txtPixCopiaCola').innerText = "Use o aplicativo do seu banco para ler o QR Code acima.";
+      document.getElementById('areaQrCodeVisor').style.display = 'block';
+  }
 
   // ================= SISTEMA DE BEEP =================
   function tocarBeep() {
@@ -561,7 +590,6 @@
           document.body.style.setProperty('--bg-logo', `url(${logoBase64})`);
       }
       
-      // Limpa a senha visualmente por segurança
       document.getElementById('senhaInput').value = '';
       
       const emailSalvo = localStorage.getItem('naty_email_login');
@@ -572,21 +600,14 @@
   });
 
   // ================= LOGIN BLINDADO E MANUAL =================
-  
-  // Informa ao Firebase que ele não deve salvar a sessão no navegador para auto-login
   auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-
   let isLogadoNestaSessao = sessionStorage.getItem("logado_agora");
 
   auth.onAuthStateChanged((user) => {
-      // Se tiver usuário logado E ele tiver passado pelo botão de ENTRAR (Sessão Ativa)
       if (user && isLogadoNestaSessao === "sim") {
           carregarSistema(user);
       } else {
-          // Se houver um usuário no cache do navegador, mas ele acabou de abrir a janela, nós derrubamos ele
-          if(user) {
-              auth.signOut();
-          }
+          if(user) { auth.signOut(); }
           document.getElementById('loginOverlay').style.display = 'flex';
           voltarLogin();
       }
@@ -594,49 +615,31 @@
 
   function fazerLogin(event) { 
       if(event) event.preventDefault();
-      
       const email = document.getElementById('emailInput').value.trim(); 
       const pass = document.getElementById('senhaInput').value; 
       const msgBox = document.getElementById('msgLogin');
       
-      if(!email || !pass) {
-          msgBox.innerText = "Preencha e-mail e senha.";
-          return;
-      }
+      if(!email || !pass) { msgBox.innerText = "Preencha e-mail e senha."; return; }
       
-      msgBox.innerText = "Carregando...";
-      msgBox.style.color = "#FFCA28"; 
+      msgBox.innerText = "Carregando..."; msgBox.style.color = "#FFCA28"; 
       
-      if(document.getElementById('chkLembrarEmail').checked) {
-          localStorage.setItem('naty_email_login', email);
-      } else {
-          localStorage.removeItem('naty_email_login');
-      }
+      if(document.getElementById('chkLembrarEmail').checked) { localStorage.setItem('naty_email_login', email); } 
+      else { localStorage.removeItem('naty_email_login'); }
       
       auth.signInWithEmailAndPassword(email, pass).then((userCred) => {
-          msgBox.innerText = "Login aprovado! Entrando...";
-          msgBox.style.color = "#66BB6A"; 
+          msgBox.innerText = "Login aprovado! Entrando..."; msgBox.style.color = "#66BB6A"; 
           document.getElementById('senhaInput').value = ''; 
-          
-          // Marca que esse login foi feito nesta janela especificamente
-          sessionStorage.setItem("logado_agora", "sim");
-          isLogadoNestaSessao = "sim";
-          
-          // onAuthStateChanged vai capturar e abrir a tela
+          sessionStorage.setItem("logado_agora", "sim"); isLogadoNestaSessao = "sim";
       }).catch(err => {
-          msgBox.style.color = "#EF5350"; 
-          msgBox.innerText = "Senha incorreta ou acesso bloqueado.";
+          msgBox.style.color = "#EF5350"; msgBox.innerText = "Senha incorreta ou acesso bloqueado.";
       }); 
   }
 
   function carregarSistema(user) {
       db.collection("usuarios").doc(user.uid).get().then((doc) => {
           roleUsuarioAtual = (doc.exists) ? doc.data().perfil : 'admin';
-          if(roleUsuarioAtual === 'func') {
-              document.body.classList.add('role-func', 'mode-kds');
-          } else {
-              document.body.classList.remove('role-func', 'mode-kds');
-          }
+          if(roleUsuarioAtual === 'func') { document.body.classList.add('role-func', 'mode-kds'); } 
+          else { document.body.classList.remove('role-func', 'mode-kds'); }
           document.getElementById('loginOverlay').style.display = 'none';
           iniciarSync();
       }).catch(err => {
@@ -645,54 +648,27 @@
       });
   }
   
-  function logout() { 
-      sessionStorage.removeItem('logado_agora'); 
-      auth.signOut().then(()=>{ window.location.reload(); }); 
-  }
-
-  function resetarApp() {
-      auth.signOut().then(() => {
-          localStorage.clear();
-          sessionStorage.clear();
-          window.location.reload();
-      });
-  }
+  function logout() { sessionStorage.removeItem('logado_agora'); auth.signOut().then(()=>{ window.location.reload(); }); }
+  function resetarApp() { auth.signOut().then(() => { localStorage.clear(); sessionStorage.clear(); window.location.reload(); }); }
 
   function iniciarSync() {
       db.collection("clientes").orderBy("nome").onSnapshot((snap) => { 
-          clientes = []; 
-          let chamouBeep = false;
-          
+          clientes = []; let chamouBeep = false;
           snap.forEach((d) => {
               let data = d.data();
               if(roleUsuarioAtual === 'admin') {
-                  let needUpdate = false;
-                  let clienteTemNovoPronto = false;
-                  
+                  let needUpdate = false; let clienteTemNovoPronto = false;
                   data.itens = data.itens.map(i => {
-                      if(i.pronto && !i.notificadoAdmin) {
-                          clienteTemNovoPronto = true;
-                          needUpdate = true;
-                          return {...i, notificadoAdmin: true};
-                      }
+                      if(i.pronto && !i.notificadoAdmin) { clienteTemNovoPronto = true; needUpdate = true; return {...i, notificadoAdmin: true}; }
                       return i;
                   });
-                  
                   if(needUpdate) { db.collection("clientes").doc(d.id).update({itens: data.itens}); }
-                  
-                  if(clienteTemNovoPronto) {
-                      let alertaNovoCriado = mostrarAlertaPronto(data.nome, d.id); 
-                      if(alertaNovoCriado) chamouBeep = true;
-                  }
+                  if(clienteTemNovoPronto) { let alertaNovoCriado = mostrarAlertaPronto(data.nome, d.id); if(alertaNovoCriado) chamouBeep = true; }
               }
               clientes.push({id: d.id, ...data});
           }); 
-
           if(chamouBeep) tocarBeep();
-
-          render(); 
-          atualizarSelect();
-          atualizarDashboard();
+          render(); atualizarSelect(); atualizarDashboard();
           if(document.body.classList.contains('mode-kds')) renderKDS();
       });
       
@@ -704,14 +680,12 @@
       db.collection("config").doc("empresa").onSnapshot((doc) => {
           if(doc.exists) {
               let d = doc.data();
-              empDados = { nome: d.nome, end: d.end, tel: d.tel };
+              empDados = { nome: d.nome, end: d.end, tel: d.tel, qrCodeBase64: d.qrCode };
               localStorage.setItem('naty_emp_data', JSON.stringify(empDados));
               atualizarInputsEmpresa();
               if(d.logo) {
-                  logoBase64 = d.logo;
-                  localStorage.setItem('logoPastelaria', d.logo);
-                  document.getElementById('logoHeader').src = d.logo;
-                  document.getElementById('logoHeader').style.display = 'block';
+                  logoBase64 = d.logo; localStorage.setItem('logoPastelaria', d.logo);
+                  document.getElementById('logoHeader').src = d.logo; document.getElementById('logoHeader').style.display = 'block';
                   document.body.style.setProperty('--bg-logo', `url(${d.logo})`);
               }
               if(d.contador !== undefined) document.getElementById('numPedido').value = d.contador + 1;
@@ -719,11 +693,7 @@
       });
       
       db.collection("caixa").onSnapshot(snap => {
-          caixaTotal = [];
-          snap.forEach(d => {
-              let item = {id: d.id, ...d.data()};
-              caixaTotal.push(item);
-          });
+          caixaTotal = []; snap.forEach(d => { let item = {id: d.id, ...d.data()}; caixaTotal.push(item); });
           atualizarDashboard();
       });
   }
@@ -734,9 +704,7 @@
       let backupData = { clientes: clientes, catalogo: catalogo, caixa: caixaTotal, config: empDados, dataBackup: new Date().toISOString() };
       let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
       let dlAnchorElem = document.createElement('a');
-      dlAnchorElem.setAttribute("href", dataStr);
-      dlAnchorElem.setAttribute("download", "backup_trailer_naty_" + new Date().toISOString().split('T')[0] + ".json");
-      dlAnchorElem.click();
+      dlAnchorElem.setAttribute("href", dataStr); dlAnchorElem.setAttribute("download", "backup_trailer_naty_" + new Date().toISOString().split('T')[0] + ".json"); dlAnchorElem.click();
       Swal.fire('Backup Salvo!', 'O arquivo JSON foi baixado para o seu dispositivo.', 'success');
   }
 
@@ -783,10 +751,7 @@
   }
 
   // ================= GERENCIAR CARDÁPIO =================
-  function abrirGerenciarCatalogo() {
-      document.getElementById('modalGerenciarCatalogo').style.display = 'flex';
-      renderGerenciarCatalogo();
-  }
+  function abrirGerenciarCatalogo() { document.getElementById('modalGerenciarCatalogo').style.display = 'flex'; renderGerenciarCatalogo(); }
 
   function renderGerenciarCatalogo() {
       let html = '';
@@ -808,8 +773,7 @@
   }
 
   function editarProduto(id) {
-      let p = catalogo.find(x => x.id === id);
-      if(!p) return;
+      let p = catalogo.find(x => x.id === id); if(!p) return;
       Swal.fire({
           title: 'Editar Produto',
           html: `<input id="editProdNome" class="swal2-input" placeholder="Nome" value="${p.nome}" style="margin-bottom:10px; width:80%;">
@@ -823,47 +787,28 @@
               if(!n || v <= 0) { Swal.showValidationMessage('Nome e Preço inválidos!'); return false; }
               return { nome: n.toUpperCase(), valor: v, ingredientes: i };
           }
-      }).then((result) => {
-          if(result.isConfirmed) db.collection("catalogo").doc(id).update(result.value).then(() => Swal.fire({icon:'success', title:'Atualizado!', timer:1000, showConfirmButton:false}));
-      });
+      }).then((result) => { if(result.isConfirmed) db.collection("catalogo").doc(id).update(result.value).then(() => Swal.fire({icon:'success', title:'Atualizado!', timer:1000, showConfirmButton:false})); });
   }
 
-  function excluirProduto(id) {
-      Swal.fire({ title: 'Excluir Produto?', text: 'Removerá do cardápio permanentemente.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#EF5350', confirmButtonText: 'Sim, excluir'
-      }).then(r => { if(r.isConfirmed) db.collection("catalogo").doc(id).delete(); });
-  }
+  function excluirProduto(id) { Swal.fire({ title: 'Excluir Produto?', text: 'Removerá do cardápio permanentemente.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#EF5350', confirmButtonText: 'Sim, excluir' }).then(r => { if(r.isConfirmed) db.collection("catalogo").doc(id).delete(); }); }
 
   // ================= KDS (COZINHA) =================
-  function toggleKDS() {
-      document.body.classList.toggle('mode-kds');
-      if(document.body.classList.contains('mode-kds')) renderKDS();
-  }
+  function toggleKDS() { document.body.classList.toggle('mode-kds'); if(document.body.classList.contains('mode-kds')) renderKDS(); }
 
   function renderKDS() {
-      const p = document.getElementById('painelKDS'); p.innerHTML = '';
-      let pedidosAgrupados = [];
-
+      const p = document.getElementById('painelKDS'); p.innerHTML = ''; let pedidosAgrupados = [];
       clientes.forEach(c => {
           let itensPendentes = []; let indicesOriginais = [];
-          c.itens.forEach((i, idx) => {
-              if(!i.pronto) { itensPendentes.push(i); indicesOriginais.push(idx); }
-          });
-          if(itensPendentes.length > 0) {
-              pedidosAgrupados.push({ cid: c.id, nome: c.nome, itens: itensPendentes, indices: indicesOriginais, tipo: itensPendentes[0].tipo, num: itensPendentes[0].numPedido });
-          }
+          c.itens.forEach((i, idx) => { if(!i.pronto) { itensPendentes.push(i); indicesOriginais.push(idx); } });
+          if(itensPendentes.length > 0) { pedidosAgrupados.push({ cid: c.id, nome: c.nome, itens: itensPendentes, indices: indicesOriginais, tipo: itensPendentes[0].tipo, num: itensPendentes[0].numPedido }); }
       });
 
       if(pedidosAgrupados.length === 0) { p.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:50px;"><h2 style="color:#fff; font-size:32px;">Cozinha Livre! 🎉</h2></div>'; return; }
 
       pedidosAgrupados.forEach(ped => {
-          let cor = ped.tipo === 'online' ? '#E3F2FD' : '#FFF3E0';
-          let border = ped.tipo === 'online' ? '#2196F3' : '#FF9800';
-          let txtTipo = ped.tipo === 'online' ? 'ONLINE' : 'BALCÃO';
+          let cor = ped.tipo === 'online' ? '#E3F2FD' : '#FFF3E0'; let border = ped.tipo === 'online' ? '#2196F3' : '#FF9800'; let txtTipo = ped.tipo === 'online' ? 'ONLINE' : 'BALCÃO';
           let htmlItens = ped.itens.map(i => `
-              <div class="kds-item-row">
-                  <div style="font-size:22px; font-weight:900;">${i.qtd}x ${i.desc}</div>
-                  <div style="color:#444; font-style:italic; font-size:14px;">${i.ingredientes || ''}</div>
-              </div>
+              <div class="kds-item-row"><div style="font-size:22px; font-weight:900;">${i.qtd}x ${i.desc}</div><div style="color:#444; font-style:italic; font-size:14px;">${i.ingredientes || ''}</div></div>
           `).join('');
 
           p.innerHTML += `
@@ -879,57 +824,29 @@
       });
   }
 
-  function marcarGrupoPronto(cid, indicesStr) {
-      let indices = indicesStr.split(',').map(Number);
-      let c = clientes.find(x => x.id === cid); let itens = [...c.itens];
-      indices.forEach(idx => { itens[idx].pronto = true; itens[idx].notificadoAdmin = false; }); 
-      db.collection("clientes").doc(cid).update({itens});
-  }
+  function marcarGrupoPronto(cid, indicesStr) { let indices = indicesStr.split(',').map(Number); let c = clientes.find(x => x.id === cid); let itens = [...c.itens]; indices.forEach(idx => { itens[idx].pronto = true; itens[idx].notificadoAdmin = false; }); db.collection("clientes").doc(cid).update({itens}); }
 
   // ================= FILTRO DE ABAS & LIMPAR MESA =================
   function setFiltroLista(tipo) {
-      filtroListaAtual = tipo;
-      document.querySelectorAll('.tab-lista').forEach(b => b.classList.remove('active'));
-      if(tipo==='todos') document.getElementById('tabListaTodos').classList.add('active');
-      if(tipo==='mesa') document.getElementById('tabListaMesa').classList.add('active');
-      if(tipo==='delivery') document.getElementById('tabListaDelivery').classList.add('active');
-      
+      filtroListaAtual = tipo; document.querySelectorAll('.tab-lista').forEach(b => b.classList.remove('active'));
+      if(tipo==='todos') document.getElementById('tabListaTodos').classList.add('active'); if(tipo==='mesa') document.getElementById('tabListaMesa').classList.add('active'); if(tipo==='delivery') document.getElementById('tabListaDelivery').classList.add('active');
       resetPaginacaoERender();
   }
   
-  function resetPaginacaoERender() {
-      paginaAtual = 1;
-      render();
-  }
+  function resetPaginacaoERender() { paginaAtual = 1; render(); }
   
-  function mudarPagina(novaPag) {
-      paginaAtual = novaPag;
-      render();
-      document.getElementById('searchBox').scrollIntoView({ behavior: 'smooth' });
-  }
+  function mudarPagina(novaPag) { paginaAtual = novaPag; render(); document.getElementById('searchBox').scrollIntoView({ behavior: 'smooth' }); }
 
   function toggleFormCadastro() {
       let tipo = document.querySelector('input[name="tipoCadastro"]:checked').value;
-      if(tipo === 'mesa') {
-          document.getElementById('formMesa').style.display = 'block';
-          document.getElementById('formDelivery').style.display = 'none';
-      } else {
-          document.getElementById('formMesa').style.display = 'none';
-          document.getElementById('formDelivery').style.display = 'block';
-      }
+      if(tipo === 'mesa') { document.getElementById('formMesa').style.display = 'block'; document.getElementById('formDelivery').style.display = 'none'; } 
+      else { document.getElementById('formMesa').style.display = 'none'; document.getElementById('formDelivery').style.display = 'block'; }
   }
 
-  function limparMesa(cid) {
-      Swal.fire({title:'Limpar Itens desta Mesa?', text: 'Isso remove os pedidos atuais, deixando a mesa livre.', icon:'warning', showCancelButton:true, confirmButtonColor:'#FF9800', confirmButtonText: 'Sim, limpar mesa'}).then(r => { 
-          if(r.isConfirmed) { db.collection("clientes").doc(cid).update({itens: []}).then(()=>Swal.fire('Mesa Limpa!','','success')); } 
-      });
-  }
+  function limparMesa(cid) { Swal.fire({title:'Limpar Itens desta Mesa?', text: 'Isso remove os pedidos atuais, deixando a mesa livre.', icon:'warning', showCancelButton:true, confirmButtonColor:'#FF9800', confirmButtonText: 'Sim, limpar mesa'}).then(r => { if(r.isConfirmed) { db.collection("clientes").doc(cid).update({itens: []}).then(()=>Swal.fire('Mesa Limpa!','','success')); } }); }
 
   function render() {
-      let lista = document.getElementById('listaClientes'); 
-      let paginacaoBox = document.getElementById('paginacaoContainer');
-      lista.innerHTML = ''; paginacaoBox.innerHTML = '';
-      
+      let lista = document.getElementById('listaClientes'); let paginacaoBox = document.getElementById('paginacaoContainer'); lista.innerHTML = ''; paginacaoBox.innerHTML = '';
       let termo = document.getElementById('searchBox').value.toLowerCase();
       
       let listaFiltrada = clientes.filter(c => {
@@ -938,13 +855,8 @@
           return matchFiltro && matchBusca;
       });
 
-      let totalPaginas = Math.ceil(listaFiltrada.length / ITENS_POR_PAGINA);
-      if (paginaAtual > totalPaginas && totalPaginas > 0) paginaAtual = totalPaginas;
-      if (paginaAtual < 1) paginaAtual = 1;
-
-      let inicio = (paginaAtual - 1) * ITENS_POR_PAGINA;
-      let fim = inicio + ITENS_POR_PAGINA;
-      let clientesDaPagina = listaFiltrada.slice(inicio, fim);
+      let totalPaginas = Math.ceil(listaFiltrada.length / ITENS_POR_PAGINA); if (paginaAtual > totalPaginas && totalPaginas > 0) paginaAtual = totalPaginas; if (paginaAtual < 1) paginaAtual = 1;
+      let inicio = (paginaAtual - 1) * ITENS_POR_PAGINA; let fim = inicio + ITENS_POR_PAGINA; let clientesDaPagina = listaFiltrada.slice(inicio, fim);
 
       clientesDaPagina.forEach(c => {
           let saldoCli = c.itens.reduce((acc, i) => acc + (Number(i.valor)||0) - (Number(i.pagoValor)||0), 0);
@@ -996,10 +908,7 @@
       if(totalPaginas > 1) {
           let botoesHtml = '';
           if(paginaAtual > 1) botoesHtml += `<button class="page-btn" onclick="mudarPagina(${paginaAtual - 1})">⬅ Anterior</button>`;
-          for(let i = 1; i <= totalPaginas; i++) {
-              let activeClass = (i === paginaAtual) ? 'active' : '';
-              botoesHtml += `<button class="page-btn ${activeClass}" onclick="mudarPagina(${i})">${i}</button>`;
-          }
+          for(let i = 1; i <= totalPaginas; i++) { let activeClass = (i === paginaAtual) ? 'active' : ''; botoesHtml += `<button class="page-btn ${activeClass}" onclick="mudarPagina(${i})">${i}</button>`; }
           if(paginaAtual < totalPaginas) botoesHtml += `<button class="page-btn" onclick="mudarPagina(${paginaAtual + 1})">Próxima ➡</button>`;
           paginacaoBox.innerHTML = botoesHtml;
       }
@@ -1007,34 +916,22 @@
 
   // ================= CADASTRO CLIENTE E PEDIDO =================
   function adicionarCliente(){ 
-      let tipo = document.querySelector('input[name="tipoCadastro"]:checked').value;
-      let dados = { itens: [], tipoCadastro: tipo };
+      let tipo = document.querySelector('input[name="tipoCadastro"]:checked').value; let dados = { itens: [], tipoCadastro: tipo };
 
       if(tipo === 'mesa') {
-          let n = document.getElementById('nomeMesa').value.trim();
-          if(!n) return Swal.fire('Ops','Informe a mesa/local','warning');
-          dados.nome = n.toUpperCase();
+          let n = document.getElementById('nomeMesa').value.trim(); if(!n) return Swal.fire('Ops','Informe a mesa/local','warning'); dados.nome = n.toUpperCase();
       } else {
           let n = document.getElementById('nome').value.trim(); if(!n) return Swal.fire('Ops','Nome obrigatório','warning'); 
-          let endCompleto = document.getElementById('logradouro').value; 
-          let bairro = document.getElementById('bairro').value; if(bairro) endCompleto += ` - ${bairro}`; 
-          let cid = document.getElementById('cidade').value; if(cid) endCompleto += ` - ${cid}`;
-          
-          dados.nome = n.toUpperCase();
-          dados.cpf_cnpj = document.getElementById('cpf_cnpj').value;
-          dados.telefone = document.getElementById('telefone').value;
-          dados.endereco = endCompleto;
+          let endCompleto = document.getElementById('logradouro').value; let bairro = document.getElementById('bairro').value; if(bairro) endCompleto += ` - ${bairro}`; let cid = document.getElementById('cidade').value; if(cid) endCompleto += ` - ${cid}`;
+          dados.nome = n.toUpperCase(); dados.cpf_cnpj = document.getElementById('cpf_cnpj').value; dados.telefone = document.getElementById('telefone').value; dados.endereco = endCompleto;
       }
       
-      db.collection("clientes").add(dados); 
-      Swal.fire({icon:'success',title:'Criado!',timer:1000,showConfirmButton:false}); 
-      
+      db.collection("clientes").add(dados); Swal.fire({icon:'success',title:'Criado!',timer:1000,showConfirmButton:false}); 
       document.getElementById('nomeMesa').value=''; document.getElementById('nome').value=''; document.getElementById('cpf_cnpj').value=''; document.getElementById('telefone').value=''; document.getElementById('cep').value=''; document.getElementById('logradouro').value=''; document.getElementById('bairro').value=''; document.getElementById('cidade').value=''; document.getElementById('cidade').style.color = '#aaa';
   }
 
   function buscarCep() {
-      let cep = document.getElementById('cep').value.replace(/\D/g, ''); 
-      if (cep.length != 8) return Swal.fire('Erro', 'CEP incompleto', 'error');
+      let cep = document.getElementById('cep').value.replace(/\D/g, ''); if (cep.length != 8) return Swal.fire('Erro', 'CEP incompleto', 'error');
       document.getElementById('logradouro').value = "Buscando..."; document.getElementById('bairro').value = "Buscando..."; document.getElementById('cidade').value = "Buscando...";
       fetch(`https://viacep.com.br/ws/${cep}/json/`).then(r => r.json()).then(d => { 
           if(d.erro) { document.getElementById('logradouro').value = ""; document.getElementById('bairro').value = ""; document.getElementById('cidade').value = ""; return Swal.fire('Ops', 'CEP não encontrado', 'warning'); }
@@ -1048,19 +945,15 @@
   
   function salvarCatalogo() { 
       let n = document.getElementById('catNome').value; let vStr = document.getElementById('catValor').value.replace(',','.'); let v = Number(vStr); 
-      if(n && v > 0){ 
-          let ingsStr = ingredientesTemp.join(', '); db.collection("catalogo").add({ nome:n.toUpperCase(), valor:v, ingredientes: ingsStr }); 
-          document.getElementById('catNome').value=''; document.getElementById('catValor').value=''; document.getElementById('novoIngrediente').value=''; ingredientesTemp = []; renderIngredientesTemp(); Swal.fire('Produto Salvo!','','success'); 
-      } else { Swal.fire('Erro', 'Preencha o nome e preço', 'error'); }
+      if(n && v > 0){ let ingsStr = ingredientesTemp.join(', '); db.collection("catalogo").add({ nome:n.toUpperCase(), valor:v, ingredientes: ingsStr }); document.getElementById('catNome').value=''; document.getElementById('catValor').value=''; document.getElementById('novoIngrediente').value=''; ingredientesTemp = []; renderIngredientesTemp(); Swal.fire('Produto Salvo!','','success'); } 
+      else { Swal.fire('Erro', 'Preencha o nome e preço', 'error'); }
   }
 
   function adicionarAoCarrinho() {
       let desc = document.getElementById('descricao').value; let qtd = Number(document.getElementById('quantidade').value); let valStr = document.getElementById('valorUnitario').value.replace(',','.'); let val = Number(valStr);
       if(!desc || val <= 0) return Swal.fire('Erro', 'Selecione um produto', 'error');
-      
       let item = { desc: desc, qtd: qtd, valor: val * qtd, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, ingredientes: document.getElementById('displayIngredientes').innerText, numPedido: document.getElementById('numPedido').value || 1, pago: false, pagoValor: 0, pronto: false, notificadoAdmin: true }; 
-      carrinhoCompras.push(item); renderCarrinho();
-      document.getElementById('descricao').value = ''; document.getElementById('quantidade').value = '1'; document.getElementById('valorUnitario').value = ''; document.getElementById('displayIngredientes').innerText = '';
+      carrinhoCompras.push(item); renderCarrinho(); document.getElementById('descricao').value = ''; document.getElementById('quantidade').value = '1'; document.getElementById('valorUnitario').value = ''; document.getElementById('displayIngredientes').innerText = '';
   }
 
   function renderCarrinho() {
@@ -1073,10 +966,7 @@
 
   function concluirPedido() {
       let id = document.getElementById('clienteSelect').value; if(!id) return Swal.fire('Aviso', 'Por favor, selecione um cliente na lista acima.', 'warning');
-      db.collection("clientes").doc(id).update({itens:firebase.firestore.FieldValue.arrayUnion(...carrinhoCompras)}).then(()=>{
-          carrinhoCompras=[]; renderCarrinho(); Swal.fire({icon: 'success', title: 'Pedido salvo', timer: 1500, showConfirmButton: false});
-          db.collection("config").doc("empresa").update({"contador": Number(document.getElementById('numPedido').value)});
-      });
+      db.collection("clientes").doc(id).update({itens:firebase.firestore.FieldValue.arrayUnion(...carrinhoCompras)}).then(()=>{ carrinhoCompras=[]; renderCarrinho(); Swal.fire({icon: 'success', title: 'Pedido salvo', timer: 1500, showConfirmButton: false}); db.collection("config").doc("empresa").update({"contador": Number(document.getElementById('numPedido').value)}); });
   }
 
   // ================= CAIXA, RELATORIO E IMPRESSÃO =================
@@ -1085,36 +975,24 @@
   function filtrarRelatorio(periodo, btn) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); if(btn) btn.classList.add('active');
       let hoje = new Date(); let filtroData = periodo === 'hoje' ? hoje.toISOString().split('T')[0] : (periodo === 'mes' ? hoje.toISOString().slice(0, 7) : "");
-      
-      let movs = caixaTotal.filter(m => {
-          if(periodo === 'semana') { let diff = (hoje - new Date(m.data)) / (1000 * 60 * 60 * 24); return diff <= 7; }
-          return m.data.startsWith(filtroData);
-      });
+      let movs = caixaTotal.filter(m => { if(periodo === 'semana') { let diff = (hoje - new Date(m.data)) / (1000 * 60 * 60 * 24); return diff <= 7; } return m.data.startsWith(filtroData); });
 
-      let totDin = 0, totPix = 0, totCart = 0, totSaida = 0;
-      let htmlSangrias = '';
-      
+      let totDin = 0, totPix = 0, totCart = 0, totQr = 0, totSaida = 0; let htmlSangrias = '';
       movs.forEach(m => {
-          if(m.tipo === 'SAIDA') {
-              totSaida += m.valor;
-              let dataHoraFormatada = new Date(m.data).toLocaleDateString('pt-BR') + ' ' + new Date(m.data).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'});
-              htmlSangrias += `<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 5px 0; font-size: 12px; color: #ccc;"><span>${dataHoraFormatada} - <b>${m.obs || 'Sem motivo'}</b></span><span style="color: #EF5350; font-weight: bold;">${formatarMoeda(m.valor)}</span></div>`;
-          }
-          else { if(m.metodo === 'DINHEIRO') totDin += m.valor; if(m.metodo === 'PIX') totPix += m.valor; if(m.metodo === 'CARTAO') totCart += m.valor; }
+          if(m.tipo === 'SAIDA') { totSaida += m.valor; let dataHoraFormatada = new Date(m.data).toLocaleDateString('pt-BR') + ' ' + new Date(m.data).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}); htmlSangrias += `<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 5px 0; font-size: 12px; color: #ccc;"><span>${dataHoraFormatada} - <b>${m.obs || 'Sem motivo'}</b></span><span style="color: #EF5350; font-weight: bold;">${formatarMoeda(m.valor)}</span></div>`; }
+          else { if(m.metodo === 'DINHEIRO') totDin += m.valor; if(m.metodo === 'PIX') totPix += m.valor; if(m.metodo === 'CARTAO') totCart += m.valor; if(m.metodo === 'QRCODE') totQr += m.valor; }
       });
 
       let areaDetalhes = document.getElementById('listaSangriasDetalhada'); let divDetalhes = document.getElementById('conteudoListaSangrias');
       if (totSaida > 0) { areaDetalhes.style.display = 'block'; divDetalhes.innerHTML = htmlSangrias; } else { areaDetalhes.style.display = 'none'; divDetalhes.innerHTML = ''; }
 
-      document.getElementById('relDinheiro').innerText = formatarMoeda(totDin); document.getElementById('relPix').innerText = formatarMoeda(totPix); document.getElementById('relCartao').innerText = formatarMoeda(totCart); document.getElementById('relSangria').innerText = formatarMoeda(totSaida); document.getElementById('relSaldoFinal').innerText = formatarMoeda((totDin + totPix + totCart) - totSaida);
+      document.getElementById('relDinheiro').innerText = formatarMoeda(totDin); document.getElementById('relPix').innerText = formatarMoeda(totPix); document.getElementById('relCartao').innerText = formatarMoeda(totCart); document.getElementById('relQrCode').innerText = formatarMoeda(totQr); document.getElementById('relSangria').innerText = formatarMoeda(totSaida); document.getElementById('relSaldoFinal').innerText = formatarMoeda((totDin + totPix + totCart + totQr) - totSaida);
   }
 
   function lancarSangria() {
       let vStr = document.getElementById('valSangria').value.replace(',','.'); let v = Number(vStr); let m = document.getElementById('obsSangria').value;
       if(!v || v <= 0 || !m) return Swal.fire('Erro', 'Dados inválidos', 'error');
-      db.collection("caixa").add({ data: new Date().toISOString(), valor: v, metodo: 'DINHEIRO', tipo: 'SAIDA', obs: m }).then(() => {
-          document.getElementById('valSangria').value = ''; document.getElementById('obsSangria').value = ''; document.getElementById('areaSangria').style.display = 'none'; Swal.fire({icon:'success', title:'Salvo', timer:1000, showConfirmButton:false}); filtrarRelatorio(document.querySelector('.tab-btn.active').innerText.toLowerCase() === 'hoje' ? 'hoje' : 'mes', document.querySelector('.tab-btn.active')); 
-      });
+      db.collection("caixa").add({ data: new Date().toISOString(), valor: v, metodo: 'DINHEIRO', tipo: 'SAIDA', obs: m }).then(() => { document.getElementById('valSangria').value = ''; document.getElementById('obsSangria').value = ''; document.getElementById('areaSangria').style.display = 'none'; Swal.fire({icon:'success', title:'Salvo', timer:1000, showConfirmButton:false}); filtrarRelatorio(document.querySelector('.tab-btn.active').innerText.toLowerCase() === 'hoje' ? 'hoje' : 'mes', document.querySelector('.tab-btn.active')); });
   }
 
   function zerarRelatorioDia() {
@@ -1140,7 +1018,7 @@
   // ================= CRUD / AUXILIARES =================
   function abrirModalPagamento(id, ii) {
       payRef = {id, ii}; let item = clientes.find(c => c.id === id).itens[ii]; let resta = (item.valor || 0) - (item.pagoValor || 0);
-      document.getElementById('txtRestantePagamento').innerText = `Falta Receber: ${formatarMoeda(resta)}`; document.getElementById('valPagamentoInput').value = resta.toFixed(2).replace('.',','); document.getElementById('modalPagamento').style.display = 'flex';
+      document.getElementById('txtRestantePagamento').innerText = `Falta Receber: ${formatarMoeda(resta)}`; document.getElementById('valPagamentoInput').value = resta.toFixed(2).replace('.',','); document.getElementById('areaQrCodeVisor').style.display = 'none'; document.getElementById('modalPagamento').style.display = 'flex';
   }
   function processarPagamento(metodo) {
       let valor = Number(document.getElementById('valPagamentoInput').value.replace(',','.')); if(!valor || valor <= 0) return Swal.fire('Erro', 'Valor', 'error');
@@ -1150,7 +1028,11 @@
       document.getElementById('modalPagamento').style.display = 'none'; Swal.fire({icon:'success', title:'Recebido!', timer:1000, showConfirmButton:false});
   }
 
-  function atualizarInputsEmpresa() { if(document.getElementById('confEmpNome')) { document.getElementById('confEmpNome').value = empDados.nome; document.getElementById('confEmpEnd').value = empDados.end; document.getElementById('confEmpTel').value = empDados.tel; } }
+  function atualizarInputsEmpresa() { 
+      if(document.getElementById('confEmpNome')) { 
+          document.getElementById('confEmpNome').value = empDados.nome; document.getElementById('confEmpEnd').value = empDados.end; document.getElementById('confEmpTel').value = empDados.tel; 
+      } 
+  }
   function formatarMoeda(v) { return Number(v).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}); }
   function formatarDataBR(d) { if(!d) return ''; let p = d.split('-'); return `${p[2]}/${p[1]}`; }
   function atualizarSelect() { let s = document.getElementById('clienteSelect'); let atual = s.value; s.innerHTML = '<option value="">Selecione o Cliente / Mesa...</option>'; clientes.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(c => { s.innerHTML += `<option value="${c.id}">${c.nome}</option>`; }); if(atual) s.value = atual; }
@@ -1158,10 +1040,35 @@
   function abrirModalSelecaoProdutos() { document.getElementById('buscaProdutoModal').value = ''; renderProdutosModal(); document.getElementById('modalSelecaoProdutos').style.display = 'flex'; }
   function renderProdutosModal() { let t = document.getElementById('buscaProdutoModal').value.toLowerCase(); let html = ''; catalogo.filter(p => p.nome.toLowerCase().includes(t)).forEach(p => { html += `<div style="display:flex; justify-content:space-between; background:#222; padding:15px; margin-bottom:8px; border-radius:10px; border:1px solid #444; align-items:center;"><div><div style="font-weight:900; font-size:16px; color:#fff;">${p.nome}</div><div style="font-size:11px; color:#aaa; font-style:italic;">${p.ingredientes || ''}</div><div style="color:#66BB6A; font-weight:bold; font-size:14px; margin-top:5px;">${formatarMoeda(p.valor)}</div></div><button class="dark" onclick="selecionarProduto('${p.nome}', ${p.valor}, '${p.ingredientes || ''}')" style="background:#FFCA28; color:#000; padding:10px 20px; font-size:14px;">➕</button></div>`; }); document.getElementById('listaProdutosModal').innerHTML = html; }
   function selecionarProduto(n, v, i) { document.getElementById('descricao').value = n; document.getElementById('valorUnitario').value = v; document.getElementById('displayIngredientes').innerText = i; document.getElementById('modalSelecaoProdutos').style.display = 'none'; }
+  
+  // Função que trata a logo
   document.getElementById('logoInput').addEventListener('change', function(e) { let file = e.target.files[0]; if(!file) return; let reader = new FileReader(); reader.onload = function(event) { let img = new Image(); img.onload = function() { let c = document.createElement('canvas'); let ctx = c.getContext('2d'); let scale = 300 / img.width; c.width = 300; c.height = img.height * scale; ctx.drawImage(img, 0, 0, c.width, c.height); let base64 = c.toDataURL('image/jpeg', 0.8); db.collection("config").doc("empresa").set({logo: base64}, {merge:true}); Swal.fire('Logo Atualizada!', '', 'success'); }; img.src = event.target.result; }; reader.readAsDataURL(file); });
+  
+  // Função que trata a imagem do QR Code
+  document.getElementById('qrInput').addEventListener('change', function(e) { 
+      let file = e.target.files[0]; if(!file) return; 
+      let reader = new FileReader(); 
+      reader.onload = function(event) { 
+          let img = new Image(); 
+          img.onload = function() { 
+              let c = document.createElement('canvas'); let ctx = c.getContext('2d'); 
+              let scale = 300 / img.width; c.width = 300; c.height = img.height * scale; 
+              ctx.drawImage(img, 0, 0, c.width, c.height); 
+              let base64 = c.toDataURL('image/jpeg', 0.8); 
+              db.collection("config").doc("empresa").set({qrCode: base64}, {merge:true}); 
+              Swal.fire('QR Code Atualizado e Salvo!', '', 'success'); 
+          }; 
+          img.src = event.target.result; 
+      }; 
+      reader.readAsDataURL(file); 
+  });
+
   function selecionarPerfil(p) { document.getElementById('step-1').style.display='none'; document.getElementById('step-2').style.display='block'; document.getElementById('msgLogin').innerText=''; }
   function voltarLogin() { document.getElementById('step-1').style.display='block'; document.getElementById('step-2').style.display='none'; document.getElementById('msgLogin').innerText=''; }
-  function salvarDadosEmpresa() { let n=document.getElementById('confEmpNome').value; let e=document.getElementById('confEmpEnd').value; let t=document.getElementById('confEmpTel').value; db.collection("config").doc("empresa").set({ nome: n, end: e, tel: t }, {merge: true}).then(() => Swal.fire('Configurações Salvas!','','success')); }
+  function salvarDadosEmpresa() { 
+      let n = document.getElementById('confEmpNome').value; let e = document.getElementById('confEmpEnd').value; let t = document.getElementById('confEmpTel').value; 
+      db.collection("config").doc("empresa").set({ nome: n, end: e, tel: t }, {merge: true}).then(() => Swal.fire('Configurações Salvas!','','success')); 
+  }
   function editarDadosCliente(id) { let c = clientes.find(x => x.id === id); let novoNome = prompt("Deseja alterar o NOME?", c.nome); if(novoNome && novoNome.trim() !== '') { db.collection("clientes").doc(id).update({nome: novoNome.toUpperCase()}).then(() => Swal.fire('Nome alterado!', '', 'success')); } }
   function compartilharZap(id) { let c = clientes.find(x => x.id === id); if(c && c.telefone) { let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}*.\n\nSeu pedido está registrado.`; window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); } else { Swal.fire('Aviso', 'Sem telefone.', 'info'); } }
   function excluirItem(cid, idx) { Swal.fire({title:'Apagar Item?', icon:'warning', showCancelButton:true, confirmButtonColor:'#EF5350', confirmButtonText: 'Sim'}).then(r => { if(r.isConfirmed) { let c = clientes.find(x => x.id === cid); let novosItens = c.itens.filter((_, i) => i !== idx); db.collection("clientes").doc(cid).update({itens: novosItens}); } }); }
