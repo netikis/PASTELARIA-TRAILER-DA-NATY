@@ -232,7 +232,7 @@
           <div style="font-size:11px; color:#aaa; font-weight:bold;">CAIXA (RECEBIDO)</div>
           <div id="dashRecebido" style="font-size:18px; font-weight:900; color:#FFF;">R$ 0,00</div>
       </div>
-      <button class="primary" onclick="abrirRelatorios()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px;">📊 FECHAR<br>CAIXA</button>
+      <button class="primary" onclick="abrirRelatorios()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px;">📊 RELATÓRIO<br>FINANCEIRO</button>
       <button class="dark" onclick="abrirGraficos()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; background:#29B6F6; color:#000; font-weight:900;">📈 PRODUTOS<br>VENDIDOS</button>
   </div>
 
@@ -372,7 +372,7 @@
         </div>
         <button class="success" onclick="concluirPedido()" style="width:100%; padding:15px; font-size:16px; font-weight:900;">✅ CONCLUIR PEDIDO</button>
     </div>
-    <input type="date" id="dataEntrada" style="display:none;">
+    <input type="hidden" id="dataEntrada">
   </div>
 
   <div style="margin-top:20px;" class="admin-only">
@@ -496,10 +496,17 @@
         <div style="text-align:center; font-size:24px; font-weight:900; color:#000; background:var(--success); padding:15px; border-radius:15px; margin-bottom:20px;">
             LÍQUIDO: <span id="relSaldoFinal">R$ 0,00</span>
         </div>
+        
         <div style="display:flex; gap:10px;">
-            <button class="warning" onclick="document.getElementById('areaSangria').style.display='block'" style="flex:2; padding:15px; font-size:14px;">💸 CADASTRAR GASTO</button>
-            <button class="danger" onclick="zerarRelatorioDia()" style="flex:1; font-weight:bold;">🗑️ ZERAR DIA</button>
+            <button class="warning" onclick="document.getElementById('areaSangria').style.display='block'" style="width: 100%; padding:15px; font-size:14px;">💸 CADASTRAR GASTO DA EMPRESA</button>
         </div>
+        
+        <div style="display:flex; gap:5px; margin-top:10px;">
+            <button class="danger" onclick="zerarRelatorio('hoje')" style="flex:1; padding:10px; font-size:11px; font-weight:bold;">🗑️ ZERAR DIA</button>
+            <button class="danger" onclick="zerarRelatorio('semana')" style="flex:1; padding:10px; font-size:11px; font-weight:bold;">🗑️ ZERAR 7 DIAS</button>
+            <button class="danger" onclick="zerarRelatorio('mes')" style="flex:1; padding:10px; font-size:11px; font-weight:bold;">🗑️ ZERAR MÊS</button>
+        </div>
+
         <div id="areaSangria" style="display:none; margin-top:15px; background:#4E342E; padding:15px; border-radius:10px; border:1px dashed var(--warning);">
             <h4 style="margin:0 0 10px 0; color:#fff;">Nova Saída</h4>
             <div class="row-inputs">
@@ -534,10 +541,23 @@
   let payRef = null; let caixaTotal = []; 
   let roleUsuarioAtual = 'admin'; let filtroListaAtual = 'todos';
   let alertasAtivos = new Set(); 
-  let chartInstancia = null; // Variável para controlar o Gráfico
+  let chartInstancia = null; 
   
   let paginaAtual = 1;
   const ITENS_POR_PAGINA = 10;
+
+  // ================= SISTEMA DE DATAS (CORREÇÃO DE FUSO HORÁRIO) =================
+  function obterDataLocal() {
+      let d = new Date();
+      let z = d.getTimezoneOffset() * 60000;
+      return (new Date(d - z)).toISOString().split('T')[0];
+  }
+  
+  function obterDataHoraLocal() {
+      let d = new Date();
+      let z = d.getTimezoneOffset() * 60000;
+      return (new Date(d - z)).toISOString(); 
+  }
 
   // ================= SISTEMA DE GRÁFICOS (PRODUTOS VENDIDOS) =================
   function abrirGraficos() {
@@ -546,40 +566,33 @@
   }
 
   function gerarGraficoProdutos() {
-      let hoje = new Date().toISOString().split('T')[0]; // Pega a data de hoje
+      let hoje = obterDataLocal();
       let produtosVendidos = {};
 
-      // Conta todos os itens vendidos HOJE
       clientes.forEach(c => {
           c.itens.forEach(i => {
               if (i.data === hoje) {
                   let nomeProduto = i.desc.trim().toUpperCase();
-                  if (!produtosVendidos[nomeProduto]) {
-                      produtosVendidos[nomeProduto] = 0;
-                  }
+                  if (!produtosVendidos[nomeProduto]) { produtosVendidos[nomeProduto] = 0; }
                   produtosVendidos[nomeProduto] += Number(i.qtd);
               }
           });
       });
 
-      // Organiza do mais vendido pro menos vendido
       let labels = Object.keys(produtosVendidos).sort((a, b) => produtosVendidos[b] - produtosVendidos[a]);
       let dataValores = labels.map(l => produtosVendidos[l]);
 
       let ctx = document.getElementById('graficoProdutos').getContext('2d');
       
-      // Apaga o gráfico antigo se existir (evita bug de passar o mouse em cima)
-      if (chartInstancia) {
-          chartInstancia.destroy(); 
-      }
+      if (chartInstancia) { chartInstancia.destroy(); }
 
       chartInstancia = new Chart(ctx, {
-          type: 'bar', // Tipo barra
+          type: 'bar',
           data: {
-              labels: labels, // Nomes dos produtos
+              labels: labels,
               datasets: [{
                   label: 'Quantidade Vendida',
-                  data: dataValores, // Valores numéricos
+                  data: dataValores,
                   backgroundColor: '#29B6F6',
                   borderColor: '#0277BD',
                   borderWidth: 1,
@@ -589,15 +602,8 @@
           options: {
               responsive: true,
               maintainAspectRatio: false,
-              scales: {
-                  y: {
-                      beginAtZero: true,
-                      ticks: { stepSize: 1 } // Vai pulando de 1 em 1
-                  }
-              },
-              plugins: {
-                  legend: { display: false } // Esconde legenda desnecessária
-              }
+              scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+              plugins: { legend: { display: false } }
           }
       });
   }
@@ -607,7 +613,6 @@
       if (!empDados.qrCodeBase64) {
           return Swal.fire('Sem Imagem', 'Vá em "Configurações & Backup" e envie a imagem do seu QR Code primeiro.', 'warning');
       }
-      
       document.getElementById('imgPixQr').src = empDados.qrCodeBase64;
       document.getElementById('txtPixCopiaCola').innerText = "Use o aplicativo do seu banco para ler o QR Code acima.";
       document.getElementById('areaQrCodeVisor').style.display = 'block';
@@ -627,8 +632,7 @@
               osc.start(ctx.currentTime + time);
               osc.stop(ctx.currentTime + time + 0.3);
           }
-          beep(880, 0, 1);    
-          beep(1046, 0.15, 1); 
+          beep(880, 0, 1); beep(1046, 0.15, 1); 
       } catch(e) { console.log('Áudio não suportado.'); }
   }
 
@@ -651,16 +655,15 @@
       return true; 
   }
 
-  function fecharAlerta(botao, cid) {
-      botao.parentElement.remove();
-  }
+  function fecharAlerta(botao, cid) { botao.parentElement.remove(); }
 
   // ================= INICIALIZAÇÃO =================
   $(document).ready(function(){
       $('#telefone').mask('(00) 00000-0000');
       $('#cep').mask('00000-000');
       $('#cpf_cnpj').mask('000.000.000-00', {onKeyPress: function(val, e, field, options) { field.mask(val.length > 14 ? '00.000.000/0000-00' : '000.000.000-000'); }});
-      document.getElementById('dataEntrada').value = new Date().toISOString().split('T')[0];
+      
+      document.getElementById('dataEntrada').value = obterDataLocal();
       
       const savedEmp = JSON.parse(localStorage.getItem('naty_emp_data'));
       if(savedEmp) { empDados = savedEmp; atualizarInputsEmpresa(); }
@@ -672,10 +675,7 @@
       document.getElementById('senhaInput').value = '';
       
       const emailSalvo = localStorage.getItem('naty_email_login');
-      if(emailSalvo) {
-          document.getElementById('emailInput').value = emailSalvo;
-          document.getElementById('chkLembrarEmail').checked = true;
-      }
+      if(emailSalvo) { document.getElementById('emailInput').value = emailSalvo; document.getElementById('chkLembrarEmail').checked = true; }
   });
 
   // ================= LOGIN BLINDADO E MANUAL =================
@@ -780,10 +780,10 @@
   // ================= SISTEMA DE BACKUP =================
   function baixarBackup() {
       Swal.fire({title: 'Gerando Backup...', text: 'Isso pode levar alguns segundos.', didOpen: () => Swal.showLoading()});
-      let backupData = { clientes: clientes, catalogo: catalogo, caixa: caixaTotal, config: empDados, dataBackup: new Date().toISOString() };
+      let backupData = { clientes: clientes, catalogo: catalogo, caixa: caixaTotal, config: empDados, dataBackup: obterDataHoraLocal() };
       let dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData));
       let dlAnchorElem = document.createElement('a');
-      dlAnchorElem.setAttribute("href", dataStr); dlAnchorElem.setAttribute("download", "backup_trailer_naty_" + new Date().toISOString().split('T')[0] + ".json"); dlAnchorElem.click();
+      dlAnchorElem.setAttribute("href", dataStr); dlAnchorElem.setAttribute("download", "backup_trailer_naty_" + obterDataLocal() + ".json"); dlAnchorElem.click();
       Swal.fire('Backup Salvo!', 'O arquivo JSON foi baixado para o seu dispositivo.', 'success');
   }
 
@@ -1032,6 +1032,7 @@
   function adicionarAoCarrinho() {
       let desc = document.getElementById('descricao').value; let qtd = Number(document.getElementById('quantidade').value); let valStr = document.getElementById('valorUnitario').value.replace(',','.'); let val = Number(valStr);
       if(!desc || val <= 0) return Swal.fire('Erro', 'Selecione um produto', 'error');
+      
       let item = { desc: desc, qtd: qtd, valor: val * qtd, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, ingredientes: document.getElementById('displayIngredientes').innerText, numPedido: document.getElementById('numPedido').value || 1, pago: false, pagoValor: 0, pronto: false, notificadoAdmin: true }; 
       carrinhoCompras.push(item); renderCarrinho(); document.getElementById('descricao').value = ''; document.getElementById('quantidade').value = '1'; document.getElementById('valorUnitario').value = ''; document.getElementById('displayIngredientes').innerText = '';
   }
@@ -1049,13 +1050,23 @@
       db.collection("clientes").doc(id).update({itens:firebase.firestore.FieldValue.arrayUnion(...carrinhoCompras)}).then(()=>{ carrinhoCompras=[]; renderCarrinho(); Swal.fire({icon: 'success', title: 'Pedido salvo', timer: 1500, showConfirmButton: false}); db.collection("config").doc("empresa").update({"contador": Number(document.getElementById('numPedido').value)}); });
   }
 
-  // ================= CAIXA, RELATORIO E IMPRESSÃO =================
+  // ================= CAIXA E RELATÓRIO =================
   function abrirRelatorios() { document.getElementById('areaSangria').style.display = 'none'; filtrarRelatorio('hoje', document.querySelector('.tab-btn')); document.getElementById('modalRelatorios').style.display = 'flex'; }
 
   function filtrarRelatorio(periodo, btn) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); if(btn) btn.classList.add('active');
-      let hoje = new Date(); let filtroData = periodo === 'hoje' ? hoje.toISOString().split('T')[0] : (periodo === 'mes' ? hoje.toISOString().slice(0, 7) : "");
-      let movs = caixaTotal.filter(m => { if(periodo === 'semana') { let diff = (hoje - new Date(m.data)) / (1000 * 60 * 60 * 24); return diff <= 7; } return m.data.startsWith(filtroData); });
+      
+      let hoje = obterDataLocal();
+      let filtroData = periodo === 'hoje' ? hoje : (periodo === 'mes' ? hoje.slice(0, 7) : "");
+      
+      let movs = caixaTotal.filter(m => { 
+          if(periodo === 'semana') { 
+              let dataMov = m.data.split('T')[0];
+              let diff = Math.floor((new Date(hoje) - new Date(dataMov)) / (1000 * 60 * 60 * 24)); 
+              return diff >= 0 && diff <= 7; 
+          } 
+          return m.data.startsWith(filtroData); 
+      });
 
       let totDin = 0, totPix = 0, totCart = 0, totQr = 0, totSaida = 0; let htmlSangrias = '';
       movs.forEach(m => {
@@ -1072,17 +1083,59 @@
   function lancarSangria() {
       let vStr = document.getElementById('valSangria').value.replace(',','.'); let v = Number(vStr); let m = document.getElementById('obsSangria').value;
       if(!v || v <= 0 || !m) return Swal.fire('Erro', 'Dados inválidos', 'error');
-      db.collection("caixa").add({ data: new Date().toISOString(), valor: v, metodo: 'DINHEIRO', tipo: 'SAIDA', obs: m }).then(() => { document.getElementById('valSangria').value = ''; document.getElementById('obsSangria').value = ''; document.getElementById('areaSangria').style.display = 'none'; Swal.fire({icon:'success', title:'Salvo', timer:1000, showConfirmButton:false}); filtrarRelatorio(document.querySelector('.tab-btn.active').innerText.toLowerCase() === 'hoje' ? 'hoje' : 'mes', document.querySelector('.tab-btn.active')); });
+      db.collection("caixa").add({ data: obterDataHoraLocal(), valor: v, metodo: 'DINHEIRO', tipo: 'SAIDA', obs: m }).then(() => { document.getElementById('valSangria').value = ''; document.getElementById('obsSangria').value = ''; document.getElementById('areaSangria').style.display = 'none'; Swal.fire({icon:'success', title:'Salvo', timer:1000, showConfirmButton:false}); filtrarRelatorio(document.querySelector('.tab-btn.active').innerText.toLowerCase() === 'hoje' ? 'hoje' : 'mes', document.querySelector('.tab-btn.active')); });
   }
 
-  function zerarRelatorioDia() {
-      if(confirm('APAGAR TUDO de caixa de hoje?')) {
-          let hoje = new Date().toISOString().split('T')[0]; let batch = db.batch(); let count = 0;
-          caixaTotal.forEach(m => { if(m.data.startsWith(hoje)) { batch.delete(db.collection("caixa").doc(m.id)); count++; } });
-          if(count > 0) { batch.commit().then(() => { Swal.fire('Zerado!', '', 'success'); document.getElementById('modalRelatorios').style.display = 'none'; }); } else { Swal.fire('Aviso', 'Nada para apagar.', 'info'); }
-      }
+  // ===== NOVA FUNÇÃO GERAL PARA ZERAR RELATÓRIO (HOJE, SEMANA OU MÊS) =====
+  function zerarRelatorio(periodo) {
+      let msg = '';
+      if (periodo === 'hoje') msg = 'o caixa de HOJE';
+      if (periodo === 'semana') msg = 'os últimos 7 DIAS';
+      if (periodo === 'mes') msg = 'o caixa DESTE MÊS';
+
+      Swal.fire({
+          title: `Zerar ${msg}?`,
+          text: `Isso vai APAGAR DEFINITIVAMENTE todas as entradas e saídas registradas em ${msg}. Tem certeza?`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#EF5350',
+          confirmButtonText: 'Sim, Limpar Tudo'
+      }).then((result) => {
+          if (result.isConfirmed) {
+              let hoje = obterDataLocal(); 
+              let filtroDataMes = hoje.slice(0, 7);
+              let batch = db.batch(); 
+              let count = 0;
+              
+              caixaTotal.forEach(m => {
+                  let deletar = false;
+                  
+                  if (periodo === 'hoje' && m.data.startsWith(hoje)) { deletar = true; }
+                  if (periodo === 'mes' && m.data.startsWith(filtroDataMes)) { deletar = true; }
+                  if (periodo === 'semana') {
+                      let dataMov = m.data.split('T')[0];
+                      let diff = Math.floor((new Date(hoje) - new Date(dataMov)) / (1000 * 60 * 60 * 24)); 
+                      if (diff >= 0 && diff <= 7) { deletar = true; }
+                  }
+
+                  if (deletar) {
+                      batch.delete(db.collection("caixa").doc(m.id));
+                      count++;
+                  }
+              });
+              
+              if (count > 0) {
+                  batch.commit().then(() => {
+                      Swal.fire('Zerado!', `${count} registros financeiros foram apagados.`, 'success');
+                      document.getElementById('modalRelatorios').style.display = 'none';
+                  });
+              } else {
+                  Swal.fire('Aviso', `Não há nada registrado para ${msg} para ser apagado.`, 'info');
+              }
+          }
+      });
   }
-  
+
   function zerarContador() { if(confirm('Zerar contador?')) { db.collection("config").doc("empresa").update({"contador": 0}); document.getElementById('numPedido').value = 1; } }
 
   function imprimirSelecionados(id) {
@@ -1104,7 +1157,7 @@
       let valor = Number(document.getElementById('valPagamentoInput').value.replace(',','.')); if(!valor || valor <= 0) return Swal.fire('Erro', 'Valor', 'error');
       let {id, ii} = payRef; let c = clientes.find(x => x.id === id); let itens = [...c.itens];
       itens[ii].pagoValor = (itens[ii].pagoValor || 0) + valor; if(itens[ii].pagoValor >= itens[ii].valor) itens[ii].pago = true;
-      db.collection("clientes").doc(id).update({itens}); db.collection("caixa").add({ data: new Date().toISOString(), valor: valor, metodo: metodo, tipo: 'ENTRADA', obs: `Pagamento: ${c.nome}` });
+      db.collection("clientes").doc(id).update({itens}); db.collection("caixa").add({ data: obterDataHoraLocal(), valor: valor, metodo: metodo, tipo: 'ENTRADA', obs: `Pagamento: ${c.nome}` });
       document.getElementById('modalPagamento').style.display = 'none'; Swal.fire({icon:'success', title:'Recebido!', timer:1000, showConfirmButton:false});
   }
 
@@ -1116,15 +1169,21 @@
   function formatarMoeda(v) { return Number(v).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}); }
   function formatarDataBR(d) { if(!d) return ''; let p = d.split('-'); return `${p[2]}/${p[1]}`; }
   function atualizarSelect() { let s = document.getElementById('clienteSelect'); let atual = s.value; s.innerHTML = '<option value="">Selecione o Cliente / Mesa...</option>'; clientes.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(c => { s.innerHTML += `<option value="${c.id}">${c.nome}</option>`; }); if(atual) s.value = atual; }
-  function atualizarDashboard() { let hoje = new Date().toISOString().split('T')[0]; let tVenda = 0, tRecebido = 0; clientes.forEach(c => { c.itens.forEach(i => { if(i.data === hoje) tVenda += (i.valor || 0); }); }); caixaTotal.forEach(m => { if(m.data.startsWith(hoje) && m.tipo === 'ENTRADA') tRecebido += m.valor; }); document.getElementById('dashTotal').innerText = formatarMoeda(tVenda); document.getElementById('dashRecebido').innerText = formatarMoeda(tRecebido); }
+  
+  function atualizarDashboard() { 
+      let hoje = obterDataLocal(); 
+      let tVenda = 0, tRecebido = 0; 
+      clientes.forEach(c => { c.itens.forEach(i => { if(i.data === hoje) tVenda += (i.valor || 0); }); }); 
+      caixaTotal.forEach(m => { if(m.data.startsWith(hoje) && m.tipo === 'ENTRADA') tRecebido += m.valor; }); 
+      document.getElementById('dashTotal').innerText = formatarMoeda(tVenda); document.getElementById('dashRecebido').innerText = formatarMoeda(tRecebido); 
+  }
+  
   function abrirModalSelecaoProdutos() { document.getElementById('buscaProdutoModal').value = ''; renderProdutosModal(); document.getElementById('modalSelecaoProdutos').style.display = 'flex'; }
   function renderProdutosModal() { let t = document.getElementById('buscaProdutoModal').value.toLowerCase(); let html = ''; catalogo.filter(p => p.nome.toLowerCase().includes(t)).forEach(p => { html += `<div style="display:flex; justify-content:space-between; background:#222; padding:15px; margin-bottom:8px; border-radius:10px; border:1px solid #444; align-items:center;"><div><div style="font-weight:900; font-size:16px; color:#fff;">${p.nome}</div><div style="font-size:11px; color:#aaa; font-style:italic;">${p.ingredientes || ''}</div><div style="color:#66BB6A; font-weight:bold; font-size:14px; margin-top:5px;">${formatarMoeda(p.valor)}</div></div><button class="dark" onclick="selecionarProduto('${p.nome}', ${p.valor}, '${p.ingredientes || ''}')" style="background:#FFCA28; color:#000; padding:10px 20px; font-size:14px;">➕</button></div>`; }); document.getElementById('listaProdutosModal').innerHTML = html; }
   function selecionarProduto(n, v, i) { document.getElementById('descricao').value = n; document.getElementById('valorUnitario').value = v; document.getElementById('displayIngredientes').innerText = i; document.getElementById('modalSelecaoProdutos').style.display = 'none'; }
   
-  // Função que trata a logo
   document.getElementById('logoInput').addEventListener('change', function(e) { let file = e.target.files[0]; if(!file) return; let reader = new FileReader(); reader.onload = function(event) { let img = new Image(); img.onload = function() { let c = document.createElement('canvas'); let ctx = c.getContext('2d'); let scale = 300 / img.width; c.width = 300; c.height = img.height * scale; ctx.drawImage(img, 0, 0, c.width, c.height); let base64 = c.toDataURL('image/jpeg', 0.8); db.collection("config").doc("empresa").set({logo: base64}, {merge:true}); Swal.fire('Logo Atualizada!', '', 'success'); }; img.src = event.target.result; }; reader.readAsDataURL(file); });
   
-  // Função que trata a imagem do QR Code
   document.getElementById('qrInput').addEventListener('change', function(e) { 
       let file = e.target.files[0]; if(!file) return; 
       let reader = new FileReader(); 
@@ -1152,7 +1211,6 @@
   function editarDadosCliente(id) { let c = clientes.find(x => x.id === id); let novoNome = prompt("Deseja alterar o NOME?", c.nome); if(novoNome && novoNome.trim() !== '') { db.collection("clientes").doc(id).update({nome: novoNome.toUpperCase()}).then(() => Swal.fire('Nome alterado!', '', 'success')); } }
   function compartilharZap(id) { let c = clientes.find(x => x.id === id); if(c && c.telefone) { let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}*.\n\nSeu pedido está registrado.`; window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); } else { Swal.fire('Aviso', 'Sem telefone.', 'info'); } }
   
-  // ===== FUNÇÃO DE CANCELAR PEDIDO INTEIRO =====
   function cancelarPedido(cid) {
       Swal.fire({
           title: 'Cancelar Pedido?', 
@@ -1168,7 +1226,6 @@
       });
   }
 
-  // ===== FUNÇÃO DE CANCELAR APENAS 1 ITEM (A lixeira na frente de cada produto) =====
   function cancelarUmItem(cid, idx) { 
       Swal.fire({
           title: 'Cancelar este item?', 
