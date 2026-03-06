@@ -35,7 +35,7 @@
       opacity: 0.12; z-index: -1; pointer-events: none; 
   }
 
-  /* --- SISTEMA DE NOTIFICAÇÕES (ALERTAS FIXOS DO CAIXA) --- */
+  /* --- SISTEMA DE NOTIFICAÇÕES --- */
   #notificationArea {
       position: fixed; top: 70px; right: 20px; z-index: 99999;
       display: flex; flex-direction: column; gap: 10px; pointer-events: none;
@@ -878,8 +878,8 @@
                       <td><div class="item-val">${formatarMoeda(i.valor)}</div><div style="font-size:11px; margin-top:2px;">${status}</div>${infoParcial}</td>
                       <td style="width:90px;">
                           <div style="display:flex; gap:5px; justify-content:flex-end;">
-                              <button class="success btn-item-action" onclick="abrirModalPagamento('${c.id}', ${idx})" style="padding:10px 12px;">$</button>
-                              <button class="danger btn-item-action admin-only" onclick="excluirItem('${c.id}', ${idx})" style="padding:10px 12px;">X</button>
+                              <button class="success btn-item-action" onclick="abrirModalPagamento('${c.id}', ${idx})" style="padding:10px 12px;" title="Pagar Item">💰</button>
+                              <button class="danger btn-item-action admin-only" onclick="cancelarUmItem('${c.id}', ${idx})" style="padding:10px 12px;" title="Cancelar Item">🗑️</button>
                           </div>
                       </td>
                   </tr>`;
@@ -898,6 +898,7 @@
                   <button class="btn-action act-edit" onclick="editarDadosCliente('${c.id}')"><span>✏️</span>EDITAR</button>
                   <button class="btn-action act-print" onclick="imprimirSelecionados('${c.id}')"><span>🖨️</span>NOTA</button>
                   <button class="btn-action act-share" onclick="compartilharZap('${c.id}')"><span>📤</span>ZAP</button>
+                  <button class="btn-action" style="background:#E53935; color:#FFF;" onclick="cancelarPedido('${c.id}')"><span>🚫</span>CANCELAR</button>
                   <button class="btn-action" style="background:#FF9800; color:#000;" onclick="limparMesa('${c.id}')"><span>🧹</span>LIMPAR</button>
                   <button class="btn-action act-del admin-only" onclick="excluirCliente('${c.id}')"><span>🗑️</span>APAGAR</button>
               </div>
@@ -1071,8 +1072,44 @@
   }
   function editarDadosCliente(id) { let c = clientes.find(x => x.id === id); let novoNome = prompt("Deseja alterar o NOME?", c.nome); if(novoNome && novoNome.trim() !== '') { db.collection("clientes").doc(id).update({nome: novoNome.toUpperCase()}).then(() => Swal.fire('Nome alterado!', '', 'success')); } }
   function compartilharZap(id) { let c = clientes.find(x => x.id === id); if(c && c.telefone) { let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}*.\n\nSeu pedido está registrado.`; window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); } else { Swal.fire('Aviso', 'Sem telefone.', 'info'); } }
-  function excluirItem(cid, idx) { Swal.fire({title:'Apagar Item?', icon:'warning', showCancelButton:true, confirmButtonColor:'#EF5350', confirmButtonText: 'Sim'}).then(r => { if(r.isConfirmed) { let c = clientes.find(x => x.id === cid); let novosItens = c.itens.filter((_, i) => i !== idx); db.collection("clientes").doc(cid).update({itens: novosItens}); } }); }
-  function excluirCliente(cid) { Swal.fire({title:'Apagar Tudo?', icon:'error', showCancelButton:true, confirmButtonColor:'#EF5350', confirmButtonText: 'EXCLUIR'}).then((r) => { if(r.isConfirmed) db.collection("clientes").doc(cid).delete(); }); }
+  
+  // ===== NOVA FUNÇÃO DE CANCELAR PEDIDO INTEIRO =====
+  function cancelarPedido(cid) {
+      Swal.fire({
+          title: 'Cancelar Pedido?', 
+          text: 'Isso irá cancelar e remover TODOS os itens desse pedido. Deseja continuar?', 
+          icon: 'warning', 
+          showCancelButton: true, 
+          confirmButtonColor: '#EF5350', 
+          confirmButtonText: 'Sim, Cancelar'
+      }).then(r => { 
+          if(r.isConfirmed) { 
+              db.collection("clientes").doc(cid).update({itens: []}).then(()=>Swal.fire('Pedido Cancelado!','','success')); 
+          } 
+      });
+  }
+
+  // ===== FUNÇÃO ATUALIZADA DE CANCELAR APENAS 1 ITEM (A lixeira na frente de cada produto) =====
+  function cancelarUmItem(cid, idx) { 
+      Swal.fire({
+          title: 'Cancelar este item?', 
+          text: 'Ele será removido da conta deste cliente.',
+          icon: 'warning', 
+          showCancelButton: true, 
+          confirmButtonColor: '#EF5350', 
+          confirmButtonText: 'Sim, Cancelar Item'
+      }).then(r => { 
+          if(r.isConfirmed) { 
+              let c = clientes.find(x => x.id === cid); 
+              let novosItens = c.itens.filter((_, i) => i !== idx); 
+              db.collection("clientes").doc(cid).update({itens: novosItens}).then(() => {
+                  Swal.fire('Item Cancelado!', '', 'success');
+              });
+          } 
+      }); 
+  }
+
+  function excluirCliente(cid) { Swal.fire({title:'Apagar Cadastro?', text:'O cliente sumirá da lista.', icon:'error', showCancelButton:true, confirmButtonColor:'#EF5350', confirmButtonText: 'APAGAR'}).then((r) => { if(r.isConfirmed) db.collection("clientes").doc(cid).delete(); }); }
 
 </script>
 </body>
