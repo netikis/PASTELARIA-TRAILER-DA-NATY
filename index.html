@@ -15,6 +15,7 @@
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
   :root {
@@ -222,16 +223,17 @@
   
   <div id="painelKDS" style="display:none;"></div>
 
-  <div class="card admin-only" style="display:flex; gap:10px; text-align:center;">
-      <div style="flex:1; background:#2D1B15; padding:15px 5px; border-radius:10px; border:1px solid #5D4037;">
+  <div class="card admin-only" style="display:flex; gap:10px; text-align:center; flex-wrap:wrap;">
+      <div style="flex:1; min-width:100px; background:#2D1B15; padding:15px 5px; border-radius:10px; border:1px solid #5D4037;">
           <div style="font-size:11px; color:#aaa; font-weight:bold;">VENDAS HOJE</div>
           <div id="dashTotal" style="font-size:18px; font-weight:900; color:#66BB6A;">R$ 0,00</div>
       </div>
-      <div style="flex:1; background:#2D1B15; padding:15px 5px; border-radius:10px; border:1px solid #5D4037;">
+      <div style="flex:1; min-width:100px; background:#2D1B15; padding:15px 5px; border-radius:10px; border:1px solid #5D4037;">
           <div style="font-size:11px; color:#aaa; font-weight:bold;">CAIXA (RECEBIDO)</div>
           <div id="dashRecebido" style="font-size:18px; font-weight:900; color:#FFF;">R$ 0,00</div>
       </div>
-      <button class="primary" onclick="abrirRelatorios()" style="flex:1; font-size:12px; border-radius:10px;">📊 FECHAR<br>CAIXA</button>
+      <button class="primary" onclick="abrirRelatorios()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px;">📊 FECHAR<br>CAIXA</button>
+      <button class="dark" onclick="abrirGraficos()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; background:#29B6F6; color:#000; font-weight:900;">📈 PRODUTOS<br>VENDIDOS</button>
   </div>
 
   <details class="card admin-only" style="padding:10px;">
@@ -388,6 +390,19 @@
 
 </div>
 
+<div class="modal" id="modalGraficos">
+    <div class="modal-content" style="max-width: 600px;">
+        <h3 style="text-align:center; font-size:22px; color:#29B6F6;">📈 Balanço de Produtos (Hoje)</h3>
+        <p style="text-align:center; font-size:12px; color:#aaa;">Mostra a quantidade exata de cada item vendido no dia de hoje.</p>
+        
+        <div style="background:#fff; padding:15px; border-radius:10px; margin-bottom:15px; border:2px solid #29B6F6;">
+            <canvas id="graficoProdutos" style="width: 100%; height: 300px;"></canvas>
+        </div>
+        
+        <button class="danger" onclick="document.getElementById('modalGraficos').style.display='none'" style="width:100%; padding:15px; font-size:16px;">FECHAR GRÁFICO</button>
+    </div>
+</div>
+
 <div class="modal" id="modalGerenciarCatalogo">
     <div class="modal-content">
         <h3 style="color:var(--accent); font-size:20px;">📋 Gerenciar Cardápio</h3>
@@ -519,9 +534,73 @@
   let payRef = null; let caixaTotal = []; 
   let roleUsuarioAtual = 'admin'; let filtroListaAtual = 'todos';
   let alertasAtivos = new Set(); 
+  let chartInstancia = null; // Variável para controlar o Gráfico
   
   let paginaAtual = 1;
   const ITENS_POR_PAGINA = 10;
+
+  // ================= SISTEMA DE GRÁFICOS (PRODUTOS VENDIDOS) =================
+  function abrirGraficos() {
+      document.getElementById('modalGraficos').style.display = 'flex';
+      gerarGraficoProdutos();
+  }
+
+  function gerarGraficoProdutos() {
+      let hoje = new Date().toISOString().split('T')[0]; // Pega a data de hoje
+      let produtosVendidos = {};
+
+      // Conta todos os itens vendidos HOJE
+      clientes.forEach(c => {
+          c.itens.forEach(i => {
+              if (i.data === hoje) {
+                  let nomeProduto = i.desc.trim().toUpperCase();
+                  if (!produtosVendidos[nomeProduto]) {
+                      produtosVendidos[nomeProduto] = 0;
+                  }
+                  produtosVendidos[nomeProduto] += Number(i.qtd);
+              }
+          });
+      });
+
+      // Organiza do mais vendido pro menos vendido
+      let labels = Object.keys(produtosVendidos).sort((a, b) => produtosVendidos[b] - produtosVendidos[a]);
+      let dataValores = labels.map(l => produtosVendidos[l]);
+
+      let ctx = document.getElementById('graficoProdutos').getContext('2d');
+      
+      // Apaga o gráfico antigo se existir (evita bug de passar o mouse em cima)
+      if (chartInstancia) {
+          chartInstancia.destroy(); 
+      }
+
+      chartInstancia = new Chart(ctx, {
+          type: 'bar', // Tipo barra
+          data: {
+              labels: labels, // Nomes dos produtos
+              datasets: [{
+                  label: 'Quantidade Vendida',
+                  data: dataValores, // Valores numéricos
+                  backgroundColor: '#29B6F6',
+                  borderColor: '#0277BD',
+                  borderWidth: 1,
+                  borderRadius: 4
+              }]
+          },
+          options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                  y: {
+                      beginAtZero: true,
+                      ticks: { stepSize: 1 } // Vai pulando de 1 em 1
+                  }
+              },
+              plugins: {
+                  legend: { display: false } // Esconde legenda desnecessária
+              }
+          }
+      });
+  }
 
   // ================= SISTEMA EXIBIR QR CODE FIXO =================
   function mostrarQrCodeFixo() {
@@ -879,7 +958,7 @@
                       <td style="width:90px;">
                           <div style="display:flex; gap:5px; justify-content:flex-end;">
                               <button class="success btn-item-action" onclick="abrirModalPagamento('${c.id}', ${idx})" style="padding:10px 12px;" title="Pagar Item">💰</button>
-                              <button class="danger btn-item-action admin-only" onclick="cancelarUmItem('${c.id}', ${idx})" style="padding:10px 12px;" title="Cancelar Item">🗑️</button>
+                              <button class="danger btn-item-action admin-only" onclick="cancelarUmItem('${c.id}', ${idx})" style="padding:10px 12px;" title="Cancelar Item (Apagar)">🗑️</button>
                           </div>
                       </td>
                   </tr>`;
@@ -1073,7 +1152,7 @@
   function editarDadosCliente(id) { let c = clientes.find(x => x.id === id); let novoNome = prompt("Deseja alterar o NOME?", c.nome); if(novoNome && novoNome.trim() !== '') { db.collection("clientes").doc(id).update({nome: novoNome.toUpperCase()}).then(() => Swal.fire('Nome alterado!', '', 'success')); } }
   function compartilharZap(id) { let c = clientes.find(x => x.id === id); if(c && c.telefone) { let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}*.\n\nSeu pedido está registrado.`; window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); } else { Swal.fire('Aviso', 'Sem telefone.', 'info'); } }
   
-  // ===== NOVA FUNÇÃO DE CANCELAR PEDIDO INTEIRO =====
+  // ===== FUNÇÃO DE CANCELAR PEDIDO INTEIRO =====
   function cancelarPedido(cid) {
       Swal.fire({
           title: 'Cancelar Pedido?', 
@@ -1089,11 +1168,11 @@
       });
   }
 
-  // ===== FUNÇÃO ATUALIZADA DE CANCELAR APENAS 1 ITEM (A lixeira na frente de cada produto) =====
+  // ===== FUNÇÃO DE CANCELAR APENAS 1 ITEM (A lixeira na frente de cada produto) =====
   function cancelarUmItem(cid, idx) { 
       Swal.fire({
           title: 'Cancelar este item?', 
-          text: 'Ele será removido da conta deste cliente.',
+          text: 'Ele será removido da conta deste cliente e sumirá da cozinha.',
           icon: 'warning', 
           showCancelButton: true, 
           confirmButtonColor: '#EF5350', 
