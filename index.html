@@ -990,6 +990,7 @@
                   <button class="btn-action" style="background:#E53935; color:#FFF;" onclick="cancelarPedido('${c.id}')"><span>🚫</span>CANCELAR</button>
                   <button class="btn-action" style="background:#FF9800; color:#000;" onclick="limparMesa('${c.id}')"><span>🧹</span>LIMPAR</button>
                   <button class="btn-action act-del admin-only" onclick="excluirCliente('${c.id}')"><span>🗑️</span>APAGAR</button>
+                  <button class="btn-action" style="background:#4CAF50; color:#FFF;" onclick="pagarSelecionados('${c.id}')"><span>💳</span>PAGAR SELEÇÃO</button>
               </div>
               <table style="width:100%">${itensHtml}</table>
           </div>`;
@@ -1267,15 +1268,62 @@
 
   // ================= CRUD / AUXILIARES =================
   function abrirModalPagamento(id, ii) {
-      payRef = {id, ii}; let item = clientes.find(c => c.id === id).itens[ii]; let resta = (item.valor || 0) - (item.pagoValor || 0);
-      document.getElementById('txtRestantePagamento').innerText = `Falta Receber: ${formatarMoeda(resta)}`; document.getElementById('valPagamentoInput').value = resta.toFixed(2).replace('.',','); document.getElementById('areaQrCodeVisor').style.display = 'none'; document.getElementById('modalPagamento').style.display = 'flex';
+      payRef = {id: id, indices: [ii]};
+      let item = clientes.find(c => c.id === id).itens[ii];
+      let resta = (item.valor || 0) - (item.pagoValor || 0);
+      document.getElementById('txtRestantePagamento').innerText = `Falta Receber: ${formatarMoeda(resta)}`;
+      document.getElementById('valPagamentoInput').value = resta.toFixed(2).replace('.',',');
+      document.getElementById('areaQrCodeVisor').style.display = 'none';
+      document.getElementById('modalPagamento').style.display = 'flex';
   }
+
+  function pagarSelecionados(cid) {
+      let checkboxes = document.querySelectorAll(`.sel-${cid}:checked`);
+      if(checkboxes.length === 0) return Swal.fire('Aviso', 'Selecione pelo menos um item na caixinha.', 'warning');
+
+      let indices = Array.from(checkboxes).map(cb => Number(cb.value));
+      payRef = {id: cid, indices: indices};
+      let c = clientes.find(x => x.id === cid);
+      let totalResta = 0;
+
+      indices.forEach(idx => {
+          let item = c.itens[idx];
+          totalResta += (item.valor || 0) - (item.pagoValor || 0);
+      });
+
+      if(totalResta <= 0) return Swal.fire('Aviso', 'Os itens já estão pagos.', 'info');
+
+      document.getElementById('txtRestantePagamento').innerText = `Falta Receber: ${formatarMoeda(totalResta)}`;
+      document.getElementById('valPagamentoInput').value = totalResta.toFixed(2).replace('.',',');
+      document.getElementById('areaQrCodeVisor').style.display = 'none';
+      document.getElementById('modalPagamento').style.display = 'flex';
+  }
+
   function processarPagamento(metodo) {
-      let valor = Number(document.getElementById('valPagamentoInput').value.replace(',','.')); if(!valor || valor <= 0) return Swal.fire('Erro', 'Valor', 'error');
-      let {id, ii} = payRef; let c = clientes.find(x => x.id === id); let itens = [...c.itens];
-      itens[ii].pagoValor = (itens[ii].pagoValor || 0) + valor; if(itens[ii].pagoValor >= itens[ii].valor) itens[ii].pago = true;
-      db.collection("clientes").doc(id).update({itens}); db.collection("caixa").add({ data: obterDataHoraLocal(), valor: valor, metodo: metodo, tipo: 'ENTRADA', obs: `Pagamento: ${c.nome}` });
-      document.getElementById('modalPagamento').style.display = 'none'; Swal.fire({icon:'success', title:'Recebido!', timer:1000, showConfirmButton:false});
+      let valor = Number(document.getElementById('valPagamentoInput').value.replace(',','.'));
+      if(!valor || valor <= 0) return Swal.fire('Erro', 'Valor inválido', 'error');
+
+      let {id, indices} = payRef;
+      let c = clientes.find(x => x.id === id);
+      let itens = [...c.itens];
+      let valorRestantePagamento = valor;
+
+      indices.forEach(ii => {
+          if (valorRestantePagamento <= 0) return;
+          let restaItem = (itens[ii].valor || 0) - (itens[ii].pagoValor || 0);
+          if (restaItem > 0) {
+              let abater = Math.min(restaItem, valorRestantePagamento);
+              itens[ii].pagoValor = (itens[ii].pagoValor || 0) + abater;
+              if(itens[ii].pagoValor >= itens[ii].valor) itens[ii].pago = true;
+              valorRestantePagamento -= abater;
+          }
+      });
+
+      db.collection("clientes").doc(id).update({itens});
+      db.collection("caixa").add({ data: obterDataHoraLocal(), valor: valor, metodo: metodo, tipo: 'ENTRADA', obs: `Pagamento: ${c.nome}` });
+
+      document.getElementById('modalPagamento').style.display = 'none';
+      Swal.fire({icon:'success', title:'Recebido!', timer:1000, showConfirmButton:false});
   }
 
   function atualizarInputsEmpresa() { 
