@@ -177,6 +177,17 @@
                     <option value="DINHEIRO">💵 Vou pagar em Dinheiro</option>
                 </select>
             </div>
+            
+            <div id="areaPix" style="display:block; background:#fff; padding:15px; border-radius:10px; margin-bottom:15px; border:2px dashed #AB47BC; text-align:center;">
+                <p style="margin:0 0 10px 0; font-size:13px; font-weight:bold; color:#333;">Escaneie o QR Code ou use o Copia e Cola para pagar o valor exato:</p>
+                <img id="imgPixQrApp" src="" style="width:150px; height:150px; margin-bottom:10px; display:none; border-radius:10px; border:1px solid #ddd; padding:5px; object-fit:contain; margin-left:auto; margin-right:auto;">
+                <div style="display:flex; gap:5px; justify-content:center; align-items:center;">
+                    <input type="text" id="inputPixCopiaColaApp" readonly style="flex:1; font-size:10px; padding:10px; border:1px solid #ccc; border-radius:5px; background:#f9f9f9; color:#333;">
+                    <button type="button" onclick="copiarPixApp()" style="background:#AB47BC; color:#fff; border:none; padding:10px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">COPIAR</button>
+                </div>
+                <p style="margin:10px 0 0 0; font-size:11px; color:#888;">*Faça o pagamento e envie o comprovante no WhatsApp caso seja solicitado.</p>
+            </div>
+
             <div class="input-group" id="areaTroco" style="display:none;">
                 <label>Precisa de troco para quanto?</label>
                 <input type="number" id="cliTroco" placeholder="Ex: 50">
@@ -333,6 +344,35 @@
       document.getElementById('cartTotalFloat').innerText = formatarMoeda(totalValor);
   }
 
+  // ================= GERADOR DE PIX COM VALOR EXATO =================
+  function gerarPixDinamico(valor) {
+      // Chave PIX e dados estáticos que você forneceu:
+      let payload = "00020126580014br.gov.bcb.pix013698cf0042-4bb7-4c0a-89c3-99c180fb20ab27600016BR.COM.PAGSEGURO0136EB1DD9C1-0DBC-4E1F-9AA2-10B360792EE2520489995303986";
+      
+      // Injeta o valor exato no PIX (se for maior que zero)
+      if (valor > 0) {
+          let valorStr = valor.toFixed(2);
+          let tamValor = valorStr.length.toString().padStart(2, '0');
+          payload += "54" + tamValor + valorStr;
+      }
+      
+      // Adiciona a cidade, cep e ID no fim:
+      payload += "5802BR5925NATHALIA PASCHOAL DA SILV6006IBAITI62290525PAGS0000000002603122142946304";
+      
+      // Calcula o CRC16 para validar o código Copia e Cola
+      let polinomio = 0x1021;
+      let resultado = 0xFFFF;
+      for (let i = 0; i < payload.length; i++) {
+          resultado ^= (payload.charCodeAt(i) << 8);
+          for (let bitwise = 0; bitwise < 8; bitwise++) {
+              if ((resultado <<= 1) & 0x10000) resultado ^= polinomio;
+              resultado &= 0xFFFF;
+          }
+      }
+      let crc = (resultado & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+      return payload + crc;
+  }
+
   // ================= TELA DE CHECKOUT =================
   function abrirCheckout() {
       document.getElementById('modalCheckout').style.display = 'flex';
@@ -369,6 +409,12 @@
       if(carrinho.length === 0) {
           fecharCheckout();
           atualizarCarrinhoFlutuante();
+      } else {
+          // Gera o código PIX e a imagem do QR Code em tempo real!
+          let pixDinamico = gerarPixDinamico(total);
+          document.getElementById('inputPixCopiaColaApp').value = pixDinamico;
+          document.getElementById('imgPixQrApp').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixDinamico)}`;
+          document.getElementById('imgPixQrApp').style.display = 'block';
       }
   }
 
@@ -389,10 +435,20 @@
       }
   }
   
-  // Mostra campo troco se escolher dinheiro
+  // Mostra campo troco se escolher dinheiro e PIX se escolher PIX
   document.getElementById('cliPagamento').addEventListener('change', function(e) {
       document.getElementById('areaTroco').style.display = (e.target.value === 'DINHEIRO') ? 'block' : 'none';
+      document.getElementById('areaPix').style.display = (e.target.value === 'PIX') ? 'block' : 'none';
   });
+
+  function copiarPixApp() {
+      let copyText = document.getElementById("inputPixCopiaColaApp");
+      copyText.select();
+      copyText.setSelectionRange(0, 99999);
+      navigator.clipboard.writeText(copyText.value).then(() => {
+          Swal.fire({icon: 'success', title: 'Copiado!', text: 'Código PIX copiado com sucesso.', timer: 1500, showConfirmButton: false});
+      });
+  }
 
   // ================= ENVIAR PEDIDO PARA O BANCO =================
   function enviarPedido() {
