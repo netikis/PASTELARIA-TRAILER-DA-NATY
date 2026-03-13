@@ -41,6 +41,12 @@
   .btn-add { background: var(--accent); color: #fff; border: none; width: 45px; height: 45px; border-radius: 10px; font-size: 24px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(216, 141, 152, 0.4); display: flex; align-items: center; justify-content: center; }
   .btn-add:active { transform: scale(0.95); }
 
+  /* CATEGORIAS (TÍTULOS) */
+  .categoria-titulo { font-family: 'Poppins', sans-serif; font-size: 18px; font-weight: 800; padding-bottom: 5px; margin-top: 25px; margin-bottom: 15px; }
+  .tit-salgados { color: #8D6E63; border-bottom: 2px solid #8D6E63; }
+  .tit-doces { color: #D88D98; border-bottom: 2px solid #D88D98; }
+  .tit-bebidas { color: #4CAF50; border-bottom: 2px solid #4CAF50; }
+
   /* BARRA FLUTUANTE CARRINHO */
   .carrinho-float { position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; background: #3E2723; color: #fff; padding: 15px 20px; border-radius: 30px; display: none; justify-content: space-between; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 1000; cursor: pointer; }
   .carrinho-float .total-itens { background: var(--accent); color: #fff; font-weight: bold; padding: 4px 10px; border-radius: 20px; font-size: 14px; }
@@ -87,13 +93,26 @@
 </div>
 
 <div class="container">
-    <h3 style="color: #3E2723; margin-top: 5px;">Nosso Cardápio 🍔</h3>
+    <h3 style="color: #3E2723; margin-top: 5px; text-align:center; font-size: 22px; font-weight:900;">Nosso Cardápio</h3>
     
-    <div id="listaProdutos">
-        <div class="loader-container">
-            <div class="spinner"></div>
-            <p>Carregando delícias...</p>
-        </div>
+    <div id="loadingCatalogo" class="loader-container">
+        <div class="spinner"></div>
+        <p>Carregando delícias...</p>
+    </div>
+
+    <div id="secaoSalgados" style="display:none;">
+        <h4 class="categoria-titulo tit-salgados">🥟 Pastéis Salgados</h4>
+        <div id="listaSalgados"></div>
+    </div>
+
+    <div id="secaoDoces" style="display:none;">
+        <h4 class="categoria-titulo tit-doces">🍫 Pastéis Doces</h4>
+        <div id="listaDoces"></div>
+    </div>
+
+    <div id="secaoBebidas" style="display:none;">
+        <h4 class="categoria-titulo tit-bebidas">🥤 Bebidas</h4>
+        <div id="listaBebidas"></div>
     </div>
 </div>
 
@@ -112,7 +131,8 @@
     <div class="checkout-header">
         <button onclick="fecharCheckout()" style="background:transparent; border:none; color:#fff; font-size:20px; cursor:pointer;">⬅ Voltar</button>
         <span>Seu Pedido</span>
-        <div style="width: 20px;"></div> </div>
+        <div style="width: 20px;"></div> 
+    </div>
     
     <div class="checkout-content">
         <div style="margin-bottom: 20px;">
@@ -200,7 +220,7 @@
 </div>
 
 <script>
-  // ================= CONFIGURAÇÃO FIREBASE (A MESMA DO ADMIN) =================
+  // ================= CONFIGURAÇÃO FIREBASE =================
   const firebaseConfig = {
     apiKey: "AIzaSyCzVRXFXsD1dAgy4cyvSF0qjZwb2sVdB_E",
     authDomain: "sistema-de-pastelaria.firebaseapp.com",
@@ -226,7 +246,6 @@
 
   // ================= INICIALIZAÇÃO =================
   function carregarDadosLoja() {
-      // Carrega Configurações (Logo e Nome)
       db.collection("config").doc("empresa").onSnapshot((doc) => {
           if(doc.exists) {
               let d = doc.data();
@@ -236,12 +255,11 @@
                   document.getElementById('logoLoja').src = d.logo;
                   document.body.style.setProperty('--bg-logo', `url(${d.logo})`);
               }
-              if(d.tel) foneLoja = d.tel.replace(/\D/g, ''); // Guarda o zap da loja
+              if(d.tel) foneLoja = d.tel.replace(/\D/g, ''); 
               if(d.contador !== undefined) numPedidoAtual = d.contador + 1;
           }
       });
 
-      // Carrega Produtos em Tempo Real
       db.collection("catalogo").orderBy("nome").onSnapshot((snap) => {
           catalogoLoja = [];
           snap.forEach(d => catalogoLoja.push({id: d.id, ...d.data()}));
@@ -249,18 +267,41 @@
       });
   }
 
-  // ================= RENDERIZAR CARDÁPIO =================
+  // ================= RENDERIZAR CARDÁPIO SEPARADO POR CATEGORIAS =================
   function renderizarProdutos() {
-      const div = document.getElementById('listaProdutos');
-      div.innerHTML = '';
-      
+      document.getElementById('loadingCatalogo').style.display = 'none';
+
+      const divSalgados = document.getElementById('listaSalgados');
+      const divDoces = document.getElementById('listaDoces');
+      const divBebidas = document.getElementById('listaBebidas');
+
+      divSalgados.innerHTML = '';
+      divDoces.innerHTML = '';
+      divBebidas.innerHTML = '';
+
+      let countSalgados = 0; let countDoces = 0; let countBebidas = 0;
+
       if(catalogoLoja.length === 0) {
-          div.innerHTML = '<p style="text-align:center; color:#888;">Nenhum produto disponível no momento.</p>';
+          document.getElementById('loadingCatalogo').style.display = 'block';
+          document.getElementById('loadingCatalogo').innerHTML = '<p>Nenhum produto disponível no momento.</p>';
           return;
       }
 
+      // Lógica automática: Palavras-chave para identificar doces e bebidas
+      const palavrasDoces = ['chocolate', 'morango', 'ouro branco', 'sonho de valsa', 'nutella', 'doce', 'brigadeiro', 'prestígio', 'creme'];
+      const palavrasBebidas = ['coca', 'suco', 'água', 'agua', 'guaraná', 'guarana', 'refrigerante', 'cerveja', 'sprite', 'fanta', 'lata', '600ml', 'litro', 'ks'];
+
       catalogoLoja.forEach(p => {
-          div.innerHTML += `
+          let nomeLower = p.nome.toLowerCase();
+          let categoria = 'salgado'; // Padrão
+          
+          if (palavrasBebidas.some(b => nomeLower.includes(b))) {
+              categoria = 'bebida';
+          } else if (palavrasDoces.some(d => nomeLower.includes(d))) {
+              categoria = 'doce';
+          }
+
+          let htmlItem = `
               <div class="produto-card">
                   <div class="produto-info">
                       <h4 class="produto-nome">${p.nome}</h4>
@@ -270,7 +311,23 @@
                   <button class="btn-add" onclick="modalAddProduto('${p.id}')">+</button>
               </div>
           `;
+
+          if (categoria === 'bebida') {
+              divBebidas.innerHTML += htmlItem;
+              countBebidas++;
+          } else if (categoria === 'doce') {
+              divDoces.innerHTML += htmlItem;
+              countDoces++;
+          } else {
+              divSalgados.innerHTML += htmlItem;
+              countSalgados++;
+          }
       });
+
+      // Só mostra os títulos das categorias se tiver produto nela
+      document.getElementById('secaoSalgados').style.display = countSalgados > 0 ? 'block' : 'none';
+      document.getElementById('secaoDoces').style.display = countDoces > 0 ? 'block' : 'none';
+      document.getElementById('secaoBebidas').style.display = countBebidas > 0 ? 'block' : 'none';
   }
 
   // ================= ADICIONAR AO CARRINHO =================
@@ -311,12 +368,12 @@
                   idProduto: p.id,
                   desc: p.nome,
                   valorUnitario: p.valor,
-                  valor: p.valor * result.value.qtd, // Total do item
+                  valor: p.valor * result.value.qtd,
                   qtd: result.value.qtd,
                   ingredientes: p.ingredientes,
-                  obsCliente: result.value.obs, // Observação digitada pelo cliente
+                  obsCliente: result.value.obs,
                   data: new Date().toISOString().split('T')[0],
-                  tipo: 'online', // Identifica lá no admin que veio do app
+                  tipo: 'online', 
                   pago: false,
                   pagoValor: 0,
                   pronto: false,
@@ -346,20 +403,16 @@
 
   // ================= GERADOR DE PIX COM VALOR EXATO =================
   function gerarPixDinamico(valor) {
-      // Chave PIX e dados estáticos que você forneceu:
       let payload = "00020126580014br.gov.bcb.pix013698cf0042-4bb7-4c0a-89c3-99c180fb20ab27600016BR.COM.PAGSEGURO0136EB1DD9C1-0DBC-4E1F-9AA2-10B360792EE2520489995303986";
       
-      // Injeta o valor exato no PIX (se for maior que zero)
       if (valor > 0) {
           let valorStr = valor.toFixed(2);
           let tamValor = valorStr.length.toString().padStart(2, '0');
           payload += "54" + tamValor + valorStr;
       }
       
-      // Adiciona a cidade, cep e ID no fim:
       payload += "5802BR5925NATHALIA PASCHOAL DA SILV6006IBAITI62290525PAGS0000000002603122142946304";
       
-      // Calcula o CRC16 para validar o código Copia e Cola
       let polinomio = 0x1021;
       let resultado = 0xFFFF;
       for (let i = 0; i < payload.length; i++) {
@@ -410,7 +463,6 @@
           fecharCheckout();
           atualizarCarrinhoFlutuante();
       } else {
-          // Gera o código PIX e a imagem do QR Code em tempo real!
           let pixDinamico = gerarPixDinamico(total);
           document.getElementById('inputPixCopiaColaApp').value = pixDinamico;
           document.getElementById('imgPixQrApp').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixDinamico)}`;
@@ -435,7 +487,6 @@
       }
   }
   
-  // Mostra campo troco se escolher dinheiro e PIX se escolher PIX
   document.getElementById('cliPagamento').addEventListener('change', function(e) {
       document.getElementById('areaTroco').style.display = (e.target.value === 'DINHEIRO') ? 'block' : 'none';
       document.getElementById('areaPix').style.display = (e.target.value === 'PIX') ? 'block' : 'none';
@@ -460,13 +511,11 @@
       let endCompletoStr = "";
 
       if(!isDelivery) {
-          // MESA/LOCAL
           let n = document.getElementById('cliNomeMesa').value.trim();
           if(!n) return Swal.fire('Atenção', 'Informe seu nome ou número da mesa.', 'warning');
           dadosCliente.nome = n.toUpperCase();
           endCompletoStr = "Consumo no Local / Mesa";
       } else {
-          // DELIVERY
           let n = document.getElementById('cliNome').value.trim();
           let zap = document.getElementById('cliZap').value.trim();
           let rua = document.getElementById('cliRua').value.trim();
@@ -482,7 +531,6 @@
           dadosCliente.endereco = endCompletoStr;
       }
 
-      // Prepara os itens para salvar
       let pagamentoForma = document.getElementById('cliPagamento').options[document.getElementById('cliPagamento').selectedIndex].text;
       let troco = document.getElementById('cliTroco').value;
       let infoPagamento = pagamentoForma;
@@ -490,14 +538,11 @@
 
       Swal.fire({title: 'Enviando Pedido...', didOpen: () => Swal.showLoading()});
 
-      // 1. Atualiza o contador de pedidos no Admin
       db.collection("config").doc("empresa").get().then((doc) => {
           let numero = 1;
           if(doc.exists && doc.data().contador) numero = doc.data().contador + 1;
           
-          // 2. Associa o número aos itens e junta as observações
           let itensFinais = carrinho.map(i => {
-              // Se o cliente digitou uma observação, a gente junta com os ingredientes normais para a cozinha ver
               let ingredFinais = i.ingredientes || '';
               if(i.obsCliente) ingredFinais += ` | OBS: *${i.obsCliente}*`;
               
@@ -510,11 +555,9 @@
           
           dadosCliente.itens = itensFinais;
           
-          // 3. Salva o cliente/pedido no Banco de Dados
           db.collection("clientes").add(dadosCliente).then(() => {
               db.collection("config").doc("empresa").update({"contador": numero});
               
-              // 4. Sucesso e envia pro Zap opcional
               carrinho = [];
               atualizarCarrinhoFlutuante();
               fecharCheckout();
@@ -552,7 +595,6 @@
               if(!d.erro) {
                   document.getElementById('cliBairro').value = d.bairro || ''; 
                   document.getElementById('cliRua').value = d.logradouro || ''; 
-                  document.getElementById('cidade').value = `${d.localidade}/${d.uf}`;
               }
           });
       }
