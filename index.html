@@ -601,24 +601,27 @@
 
       let hoje = obterDataLocal();
       let filtroDataMes = hoje.slice(0, 7);
+      
       let produtosVendidos = {};
 
-      clientes.forEach(c => {
-          c.itens.forEach(i => {
-              let incluir = false;
-              if (periodo === 'hoje' && i.data === hoje) { incluir = true; }
-              if (periodo === 'mes' && i.data && i.data.startsWith(filtroDataMes)) { incluir = true; }
-              if (periodo === 'semana' && i.data) {
-                  let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
-                  if (diff >= 0 && diff <= 7) { incluir = true; }
-              }
+      let todosItens = [];
+      clientes.forEach(c => { c.itens.forEach(i => todosItens.push(i)); });
+      caixaTotal.forEach(m => { if(m.tipo === 'REGISTRO_ITENS' && m.itens) { m.itens.forEach(i => todosItens.push(i)); } });
 
-              if (incluir) {
-                  let nomeProduto = i.desc.trim().toUpperCase();
-                  if (!produtosVendidos[nomeProduto]) { produtosVendidos[nomeProduto] = 0; }
-                  produtosVendidos[nomeProduto] += Number(i.qtd);
-              }
-          });
+      todosItens.forEach(i => {
+          let incluir = false;
+          if (periodo === 'hoje' && i.data === hoje) { incluir = true; }
+          if (periodo === 'mes' && i.data && i.data.startsWith(filtroDataMes)) { incluir = true; }
+          if (periodo === 'semana' && i.data) {
+              let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
+              if (diff >= 0 && diff <= 7) { incluir = true; }
+          }
+
+          if (incluir) {
+              let nomeProduto = i.desc.trim().toUpperCase();
+              if (!produtosVendidos[nomeProduto]) { produtosVendidos[nomeProduto] = 0; }
+              produtosVendidos[nomeProduto] += Number(i.qtd);
+          }
       });
 
       let labels = Object.keys(produtosVendidos).sort((a, b) => produtosVendidos[b] - produtosVendidos[a]);
@@ -686,6 +689,24 @@
                       let ref = db.collection("clientes").doc(c.id);
                       batch.update(ref, { itens: itensRestantes });
                       count++;
+                  }
+              });
+
+              caixaTotal.forEach(m => {
+                  if(m.tipo === 'REGISTRO_ITENS') {
+                      let dataRegistro = m.data.split('T')[0];
+                      let deletarRegistro = false;
+                      if (periodoGraficoAtual === 'hoje' && dataRegistro === hoje) deletarRegistro = true;
+                      if (periodoGraficoAtual === 'mes' && dataRegistro.startsWith(filtroDataMes)) deletarRegistro = true;
+                      if (periodoGraficoAtual === 'semana') {
+                          let diff = Math.floor((new Date(hoje) - new Date(dataRegistro)) / (1000 * 60 * 60 * 24));
+                          if (diff >= 0 && diff <= 7) deletarRegistro = true;
+                      }
+
+                      if (deletarRegistro) {
+                          batch.delete(db.collection("caixa").doc(m.id));
+                          count++;
+                      }
                   }
               });
 
@@ -1025,7 +1046,17 @@
       else { document.getElementById('formMesa').style.display = 'none'; document.getElementById('formDelivery').style.display = 'block'; }
   }
 
-  function limparMesa(cid) { Swal.fire({title:'Limpar Itens desta Mesa?', text: 'Isso remove os pedidos atuais, deixando a mesa livre.', icon:'warning', showCancelButton:true, confirmButtonColor:'#FF9800', confirmButtonText: 'Sim, limpar mesa'}).then(r => { if(r.isConfirmed) { db.collection("clientes").doc(cid).update({itens: []}).then(()=>Swal.fire('Mesa Limpa!','','success')); } }); }
+  function limparMesa(cid) { 
+      Swal.fire({title:'Limpar Itens desta Mesa?', text: 'Isso remove os pedidos atuais, deixando a mesa livre.', icon:'warning', showCancelButton:true, confirmButtonColor:'#FF9800', confirmButtonText: 'Sim, limpar mesa'}).then(r => { 
+          if(r.isConfirmed) { 
+              let c = clientes.find(x => x.id === cid);
+              if(c && c.itens && c.itens.length > 0) {
+                  db.collection("caixa").add({ data: obterDataHoraLocal(), tipo: 'REGISTRO_ITENS', itens: c.itens });
+              }
+              db.collection("clientes").doc(cid).update({itens: []}).then(()=>Swal.fire('Mesa Limpa!','','success')); 
+          } 
+      }); 
+  }
 
   function render() {
       let lista = document.getElementById('listaClientes'); let paginacaoBox = document.getElementById('paginacaoContainer'); lista.innerHTML = ''; paginacaoBox.innerHTML = '';
@@ -1177,7 +1208,7 @@
       let totDin = 0, totPix = 0, totCart = 0, totQr = 0, totSaida = 0; let htmlSangrias = '';
       movs.forEach(m => {
           if(m.tipo === 'SAIDA') { totSaida += m.valor; let dataHoraFormatada = new Date(m.data).toLocaleDateString('pt-BR') + ' ' + new Date(m.data).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}); htmlSangrias += `<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 5px 0; font-size: 12px; color: #ccc;"><span>${dataHoraFormatada} - <b>${m.obs || 'Sem motivo'}</b></span><span style="color: #EF5350; font-weight: bold;">${formatarMoeda(m.valor)}</span></div>`; }
-          else { if(m.metodo === 'DINHEIRO') totDin += m.valor; if(m.metodo === 'PIX') totPix += m.valor; if(m.metodo === 'CARTAO') totCart += m.valor; if(m.metodo === 'QRCODE') totQr += m.valor; }
+          else if(m.tipo === 'ENTRADA') { if(m.metodo === 'DINHEIRO') totDin += m.valor; if(m.metodo === 'PIX') totPix += m.valor; if(m.metodo === 'CARTAO') totCart += m.valor; if(m.metodo === 'QRCODE') totQr += m.valor; }
       });
 
       let areaDetalhes = document.getElementById('listaSangriasDetalhada'); let divDetalhes = document.getElementById('conteudoListaSangrias');
@@ -1186,22 +1217,25 @@
       document.getElementById('relDinheiro').innerText = formatarMoeda(totDin); document.getElementById('relPix').innerText = formatarMoeda(totPix); document.getElementById('relCartao').innerText = formatarMoeda(totCart); document.getElementById('relQrCode').innerText = formatarMoeda(totQr); document.getElementById('relSangria').innerText = formatarMoeda(totSaida); document.getElementById('relSaldoFinal').innerText = formatarMoeda((totDin + totPix + totCart + totQr) - totSaida);
 
       let produtosVendidosNoPeriodo = {};
-      clientes.forEach(c => {
-          c.itens.forEach(i => {
-              let incluir = false;
-              if (periodo === 'hoje' && i.data === hoje) { incluir = true; }
-              if (periodo === 'mes' && i.data && i.data.startsWith(filtroData)) { incluir = true; }
-              if (periodo === 'semana' && i.data) {
-                  let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
-                  if (diff >= 0 && diff <= 7) { incluir = true; }
-              }
-              
-              if(incluir) {
-                  let nomeProduto = i.desc.trim().toUpperCase();
-                  if (!produtosVendidosNoPeriodo[nomeProduto]) { produtosVendidosNoPeriodo[nomeProduto] = 0; }
-                  produtosVendidosNoPeriodo[nomeProduto] += Number(i.qtd);
-              }
-          });
+      
+      let todosItensRelatorio = [];
+      clientes.forEach(c => { c.itens.forEach(i => todosItensRelatorio.push(i)); });
+      caixaTotal.forEach(m => { if(m.tipo === 'REGISTRO_ITENS' && m.itens) { m.itens.forEach(i => todosItensRelatorio.push(i)); } });
+
+      todosItensRelatorio.forEach(i => {
+          let incluir = false;
+          if (periodo === 'hoje' && i.data === hoje) { incluir = true; }
+          if (periodo === 'mes' && i.data && i.data.startsWith(filtroData)) { incluir = true; }
+          if (periodo === 'semana' && i.data) {
+              let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
+              if (diff >= 0 && diff <= 7) { incluir = true; }
+          }
+          
+          if(incluir) {
+              let nomeProduto = i.desc.trim().toUpperCase();
+              if (!produtosVendidosNoPeriodo[nomeProduto]) { produtosVendidosNoPeriodo[nomeProduto] = 0; }
+              produtosVendidosNoPeriodo[nomeProduto] += Number(i.qtd);
+          }
       });
 
       let htmlProdutos = '';
@@ -1238,7 +1272,6 @@
       let htmlSaidas = document.getElementById('conteudoListaSangrias').innerHTML || '<div style="color:#000;">Nenhuma saída registrada.</div>';
       let logoHtml = logoBase64 ? `<img src="${logoBase64}" style="width:100px; height:100px; border-radius:50%; margin-bottom:10px; object-fit:cover; border:2px solid #000;">` : '';
 
-      // Cria a estrutura visual exata que vai ser salva no PDF
       let html = `
           <div style="width: 100%; font-family: 'Courier New', monospace; color: #000; background: #fff; padding: 20px; box-sizing: border-box;">
               <div style="text-align:center;">
@@ -1271,7 +1304,6 @@
           </div>
       `;
 
-      // Aviso de que está baixando
       Swal.fire({
           title: 'Gerando PDF...',
           text: 'Aguarde um momento enquanto preparamos seu arquivo.',
@@ -1281,7 +1313,6 @@
       let elementoHTML = document.createElement('div');
       elementoHTML.innerHTML = html;
 
-      // Configurações do arquivo PDF
       let opt = {
         margin:       10,
         filename:     'Relatorio_Trailer_Naty_' + hojeStr.replace(/\//g, '-') + '.pdf',
@@ -1290,7 +1321,6 @@
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
       };
 
-      // Gera e faz o download automático
       html2pdf().set(opt).from(elementoHTML).save().then(() => {
           Swal.close();
           Swal.fire('Pronto!', 'O PDF foi baixado para o seu computador/celular.', 'success');
@@ -1503,7 +1533,17 @@
       }); 
   }
 
-  function excluirCliente(cid) { Swal.fire({title:'Apagar Cadastro?', text:'O cliente sumirá da lista.', icon:'error', showCancelButton:true, confirmButtonColor:'#EF5350', confirmButtonText: 'APAGAR'}).then((r) => { if(r.isConfirmed) db.collection("clientes").doc(cid).delete(); }); }
+  function excluirCliente(cid) { 
+      Swal.fire({title:'Apagar Cadastro?', text:'O cliente sumirá da lista.', icon:'error', showCancelButton:true, confirmButtonColor:'#EF5350', confirmButtonText: 'APAGAR'}).then((r) => { 
+          if(r.isConfirmed) {
+              let c = clientes.find(x => x.id === cid);
+              if(c && c.itens && c.itens.length > 0) {
+                  db.collection("caixa").add({ data: obterDataHoraLocal(), tipo: 'REGISTRO_ITENS', itens: c.itens });
+              }
+              db.collection("clientes").doc(cid).delete(); 
+          }
+      }); 
+  }
 
 </script>
 </body>
