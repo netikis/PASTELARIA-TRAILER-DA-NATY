@@ -293,7 +293,7 @@
       });
   }
 
-  // ================= RENDERIZAR CARDÁPIO =================
+  // ================= RENDERIZAR CARDÁPIO SEPARADO POR CATEGORIAS LIDO DO BANCO =================
   function renderizarProdutos() {
       document.getElementById('loadingCatalogo').style.display = 'none';
 
@@ -361,6 +361,7 @@
       document.getElementById('secaoOutros').style.display = countOutros > 0 ? 'block' : 'none';
   }
 
+  // ================= ADICIONAR AO CARRINHO =================
   function modalAddProduto(id) {
       let p = catalogoLoja.find(x => x.id === id);
       
@@ -433,11 +434,13 @@
 
   function gerarPixDinamico(valor) {
       let payload = "00020126580014br.gov.bcb.pix013698cf0042-4bb7-4c0a-89c3-99c180fb20ab27600016BR.COM.PAGSEGURO0136EB1DD9C1-0DBC-4E1F-9AA2-10B360792EE2520489995303986";
+      
       if (valor > 0) {
           let valorStr = valor.toFixed(2);
           let tamValor = valorStr.length.toString().padStart(2, '0');
           payload += "54" + tamValor + valorStr;
       }
+      
       payload += "5802BR5925NATHALIA PASCHOAL DA SILV6006IBAITI62290525PAGS0000000002603122142946304";
       
       let polinomio = 0x1021;
@@ -462,6 +465,7 @@
       document.getElementById('modalCheckout').style.display = 'none';
   }
 
+  // RECALCULA O CARRINHO E APLICA TAXA SE FOR DELIVERY
   function renderizarItensCheckout() {
       let div = document.getElementById('listaItensCheckout');
       div.innerHTML = '';
@@ -484,6 +488,7 @@
           `;
       });
       
+      // Adiciona a Taxa Visualmente se for Delivery
       if (isDelivery && taxaEntregaLoja > 0) {
           total += taxaEntregaLoja;
           div.innerHTML += `
@@ -515,6 +520,7 @@
       atualizarCarrinhoFlutuante();
   }
 
+  // Atualiza as opções de entrega e refaz os cálculos
   function mudarModoEntrega() {
       let isDelivery = document.getElementById('modoDelivery').checked;
       
@@ -527,6 +533,8 @@
           document.getElementById('areaMesa').style.display = 'block';
           document.getElementById('tituloEntregaForm').innerText = 'Retirada / Mesa';
       }
+      
+      // Atualiza o carrinho para mostrar ou esconder a taxa
       renderizarItensCheckout();
   }
   
@@ -551,33 +559,28 @@
       let dadosCliente = { itens: [], tipoCadastro: isDelivery ? 'delivery' : 'mesa' };
       
       let endCompletoStr = "";
-      let zapCliente = "";
 
       if(!isDelivery) {
           let n = document.getElementById('cliNomeMesa').value.trim();
-          zapCliente = document.getElementById('cliZapMesa').value.trim();
           if(!n) return Swal.fire('Atenção', 'Informe seu nome ou número da mesa.', 'warning');
-          
           dadosCliente.nome = n.toUpperCase();
-          if(zapCliente) dadosCliente.telefone = zapCliente;
           endCompletoStr = "Consumo no Local / Retirada";
       } else {
           let n = document.getElementById('cliNome').value.trim();
-          zapCliente = document.getElementById('cliZap').value.trim();
+          let zap = document.getElementById('cliZap').value.trim();
           let rua = document.getElementById('cliRua').value.trim();
           let bairro = document.getElementById('cliBairro').value.trim();
           let ref = document.getElementById('cliRef').value.trim();
           
-          if(!n || !zapCliente || !rua || !bairro) return Swal.fire('Atenção', 'Preencha os campos obrigatórios (Nome, WhatsApp, Rua e Bairro).', 'warning');
+          if(!n || !zap || !rua || !bairro) return Swal.fire('Atenção', 'Preencha os campos obrigatórios (Nome, WhatsApp, Rua e Bairro).', 'warning');
           
           dadosCliente.nome = n.toUpperCase();
-          dadosCliente.telefone = zapCliente;
+          dadosCliente.telefone = zap;
           endCompletoStr = `${rua} - ${bairro}`;
           if(ref) endCompletoStr += ` (Ref: ${ref})`;
           dadosCliente.endereco = endCompletoStr;
       }
 
-      // CAPTURA A FORMA DE PAGAMENTO E O TROCO
       let pagamentoForma = document.getElementById('cliPagamento').options[document.getElementById('cliPagamento').selectedIndex].text;
       let troco = document.getElementById('cliTroco').value;
       let infoPagamento = pagamentoForma;
@@ -617,7 +620,8 @@
           }
           
           dadosCliente.itens = itensFinais;
-          dadosCliente.pagamento = infoPagamento; // SALVA O PAGAMENTO NO BANCO PARA O CAIXA VER
+          dadosCliente.novoOnline = true; 
+          dadosCliente.pagamento = infoPagamento; 
           
           db.collection("clientes").add(dadosCliente).then(() => {
               db.collection("config").doc("empresa").update({"contador": numero});
@@ -628,17 +632,16 @@
               
               Swal.fire({
                   title: 'Pedido Recebido! 🎉',
-                  text: 'Sua comanda já apareceu no nosso sistema e foi para a cozinha.',
+                  text: 'Sua comanda já está na nossa cozinha.',
                   icon: 'success',
                   showCancelButton: true,
                   confirmButtonColor: '#4CAF50',
                   cancelButtonColor: '#888',
-                  confirmButtonText: 'Salvar Recibo no WhatsApp',
+                  confirmButtonText: 'Avisar no WhatsApp',
                   cancelButtonText: 'Fechar'
               }).then((result) => {
-                  if (result.isConfirmed) {
-                      let nomeLojaDisplay = document.getElementById('nomeLoja').innerText;
-                      let textoZap = `*COMPROVANTE DE PEDIDO* 🍔\n\n*Olá, ${dadosCliente.nome}!* Seu pedido foi registrado com sucesso na *${nomeLojaDisplay}*.\n\n*Modo:* ${isDelivery ? 'Delivery 🛵' : 'Retirada/Local 🪑'}\n*Endereço:* ${endCompletoStr}\n*Pagamento:* ${infoPagamento}\n\n*Itens do Pedido:*`;
+                  if (result.isConfirmed && foneLoja) {
+                      let textoZap = `*NOVO PEDIDO (ONLINE)* 🍔\n\n*Cliente:* ${dadosCliente.nome}\n*Modo:* ${isDelivery ? 'Delivery 🛵' : 'Mesa/Local 🪑'}\n*Endereço:* ${endCompletoStr}\n*Pagamento:* ${infoPagamento}\n\n*Itens:*`;
                       
                       let valorTotalZap = 0;
                       itensFinais.forEach(i => {
@@ -646,16 +649,9 @@
                           textoZap += `\n- ${i.qtd}x ${i.desc} (R$ ${i.valor.toFixed(2)})`;
                       });
                       
-                      textoZap += `\n\n*Total a pagar:* R$ ${valorTotalZap.toFixed(2)}\n\n_Aguarde, logo seu pedido estará pronto!_`;
+                      textoZap += `\n\n*Total a pagar:* R$ ${valorTotalZap.toFixed(2)}`;
                       
-                      let numeroLimpo = zapCliente.replace(/\D/g, '');
-                      let url = "";
-                      
-                      if(numeroLimpo.length >= 10) {
-                          url = `https://wa.me/55${numeroLimpo}?text=${encodeURIComponent(textoZap)}`;
-                      } else {
-                          url = `https://wa.me/?text=${encodeURIComponent(textoZap)}`;
-                      }
+                      let url = `https://wa.me/55${foneLoja}?text=${encodeURIComponent(textoZap)}`;
                       window.open(url, '_blank');
                   }
               });
