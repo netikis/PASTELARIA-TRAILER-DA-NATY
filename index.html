@@ -262,6 +262,15 @@
           <div style="flex:1; min-width:250px;">
               <div style="background:#2D1B15; padding:15px; border-radius:10px; border:1px solid #5D4037; margin-bottom:15px;">
                   <h4 style="color:var(--success); margin-top:0;">📦 Adicionar Produto</h4>
+                  
+                  <select id="catCategoria" style="width:100%; margin-bottom:10px;">
+                      <option value="PASTÉIS SALGADOS">Pastéis Salgados</option>
+                      <option value="PASTÉIS DOCES">Pastéis Doces</option>
+                      <option value="BEBIDAS">Bebidas</option>
+                      <option value="PORÇÕES">Porções</option>
+                      <option value="OUTROS">Outros</option>
+                  </select>
+                  
                   <input type="text" id="catNome" placeholder="Nome (Ex: Pastel Carne)" style="width:100%; margin-bottom:10px;">
                   <input type="number" id="catValor" placeholder="Preço R$" style="width:100%; margin-bottom:10px;">
                   
@@ -346,9 +355,13 @@
         </div>
     </div>
 
-    <select id="clienteSelect" style="margin-bottom:10px; background:#4E342E; color:#fff; border:1px solid var(--accent); padding:15px; font-size:16px; font-weight:bold;">
-        <option value="">Selecione o Cliente / Mesa...</option>
-    </select>
+    <div style="background:#2D1B15; padding:12px; border-radius:10px; margin-bottom:15px; border:1px dashed #5D4037;">
+        <label style="font-size:11px; color:#aaa; font-weight:bold;">VINCULAR PEDIDO AO CLIENTE/MESA:</label>
+        <input type="search" id="filtroClienteSelect" placeholder="🔍 Digite o nome ou celular para buscar..." onkeyup="atualizarSelect()" autocomplete="off" style="width:100%; margin-top:5px; margin-bottom:8px; background:#222; border:1px solid var(--accent); padding:12px; font-size:14px; border-radius:8px; color:#fff;">
+        <select id="clienteSelect" style="width:100%; background:#4E342E; color:#fff; border:1px solid var(--accent); padding:15px; font-size:16px; font-weight:bold; border-radius:8px;">
+            <option value="">Selecione na lista...</option>
+        </select>
+    </div>
 
     <div style="background:#2D1B15; padding:15px; border-radius:10px; border:1px dashed #5D4037;">
         <button class="primary" style="background:#8D6E63; color:#fff;" onclick="abrirModalSelecaoProdutos()" style="width:100%; margin-bottom:12px; padding:12px; font-size:14px;">🔍 BUSCAR PRODUTO NO CARDÁPIO</button>
@@ -368,6 +381,12 @@
         <table style="width:100%;">
             <tbody id="listaCarrinho"></tbody>
         </table>
+        
+        <div style="display:flex; gap:10px; margin-top:15px; border-top:1px dashed #444; padding-top:15px;">
+            <input type="number" id="inputTaxa" placeholder="Taxa Frete R$" oninput="atualizarTotalCarrinho()" style="flex:1; background:#3E2723; border:1px solid #5D4037;">
+            <input type="number" id="inputDesconto" placeholder="Desconto R$" oninput="atualizarTotalCarrinho()" style="flex:1; background:#3E2723; border:1px solid #5D4037;">
+        </div>
+
         <div style="text-align:right; font-weight:900; color:var(--success); font-size:22px; margin:15px 0;">
             Total: <span id="totalCarrinhoDisplay">R$ 0,00</span>
         </div>
@@ -423,6 +442,7 @@
 <div class="modal" id="modalSelecaoProdutos">
     <div class="modal-content">
         <h3 style="color:var(--accent); font-size:20px;">Cardápio</h3>
+        <div id="abasCategoriasModal" style="display:flex; gap:5px; overflow-x:auto; margin-bottom:10px; padding-bottom:5px;"></div>
         <input type="search" id="buscaProdutoModal" placeholder="🔍 Filtrar produto..." onkeyup="renderProdutosModal()" autocomplete="new-password" style="margin-bottom:15px; padding:15px;">
         <div id="listaProdutosModal" style="max-height:50vh; overflow-y:auto; padding-right:5px;"></div>
         <button class="danger" onclick="document.getElementById('modalSelecaoProdutos').style.display='none'" style="width:100%; margin-top:15px; padding:15px; font-size:16px;">FECHAR</button>
@@ -433,8 +453,16 @@
     <div class="modal-content" style="text-align:center;">
         <h3 style="color:var(--success); font-size:22px;">Registrar Pagamento</h3>
         <p id="txtRestantePagamento" style="color:#aaa; margin-bottom:15px; font-size:16px;"></p>
-        <input type="tel" id="valPagamentoInput" placeholder="Valor R$" style="font-size:28px; text-align:center; color:#fff; background:#222; border:2px solid var(--success); padding:15px; font-weight:bold; margin-bottom:20px;">
+        <input type="tel" id="valPagamentoInput" placeholder="Valor R$" style="font-size:28px; text-align:center; color:#fff; background:#222; border:2px solid var(--success); padding:15px; font-weight:bold; margin-bottom:15px;">
         
+        <div style="margin-bottom:20px; background:#2D1B15; padding:10px; border-radius:10px; border:1px solid #5D4037;">
+            <label style="font-size:12px; color:#aaa;">Dividir conta da mesa (pessoas):</label>
+            <div style="display:flex; justify-content:center; align-items:center; gap:10px; margin-top:5px;">
+                <input type="number" id="dividirConta" value="1" min="1" oninput="calcularDivisao()" style="width:60px; text-align:center; padding:8px; font-size:16px; font-weight:bold; border-radius:8px; margin:0;">
+                <span id="valorDividido" style="color:#29B6F6; font-weight:900; font-size:16px;"></span>
+            </div>
+        </div>
+
         <button onclick="mostrarQrCodeFixo()" style="width:100%; padding:15px; font-size:14px; background:#AB47BC; color:#fff; font-weight:900; margin-bottom:20px; box-shadow:0 4px 10px rgba(0,0,0,0.5);">📷 MOSTRAR QR CODE / PIX COPIA E COLA</button>
         
         <div id="areaQrCodeVisor" style="display:none; background:#fff; padding:15px; border-radius:10px; margin-bottom:20px;">
@@ -568,6 +596,10 @@
   
   let paginaAtual = 1;
   const ITENS_POR_PAGINA = 10;
+  
+  // Variáveis das novas funções
+  let categoriaFiltroModal = 'TODAS';
+  let valorSendoPagoNoModal = 0;
 
   // ================= SISTEMA DE DATAS =================
   function obterDataLocal() {
@@ -601,27 +633,24 @@
 
       let hoje = obterDataLocal();
       let filtroDataMes = hoje.slice(0, 7);
-      
       let produtosVendidos = {};
 
-      let todosItens = [];
-      clientes.forEach(c => { c.itens.forEach(i => todosItens.push(i)); });
-      caixaTotal.forEach(m => { if(m.tipo === 'REGISTRO_ITENS' && m.itens) { m.itens.forEach(i => todosItens.push(i)); } });
+      clientes.forEach(c => {
+          c.itens.forEach(i => {
+              let incluir = false;
+              if (periodo === 'hoje' && i.data === hoje) { incluir = true; }
+              if (periodo === 'mes' && i.data && i.data.startsWith(filtroDataMes)) { incluir = true; }
+              if (periodo === 'semana' && i.data) {
+                  let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
+                  if (diff >= 0 && diff <= 7) { incluir = true; }
+              }
 
-      todosItens.forEach(i => {
-          let incluir = false;
-          if (periodo === 'hoje' && i.data === hoje) { incluir = true; }
-          if (periodo === 'mes' && i.data && i.data.startsWith(filtroDataMes)) { incluir = true; }
-          if (periodo === 'semana' && i.data) {
-              let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
-              if (diff >= 0 && diff <= 7) { incluir = true; }
-          }
-
-          if (incluir) {
-              let nomeProduto = i.desc.trim().toUpperCase();
-              if (!produtosVendidos[nomeProduto]) { produtosVendidos[nomeProduto] = 0; }
-              produtosVendidos[nomeProduto] += Number(i.qtd);
-          }
+              if (incluir) {
+                  let nomeProduto = i.desc.trim().toUpperCase();
+                  if (!produtosVendidos[nomeProduto]) { produtosVendidos[nomeProduto] = 0; }
+                  produtosVendidos[nomeProduto] += Number(i.qtd);
+              }
+          });
       });
 
       let labels = Object.keys(produtosVendidos).sort((a, b) => produtosVendidos[b] - produtosVendidos[a]);
@@ -689,24 +718,6 @@
                       let ref = db.collection("clientes").doc(c.id);
                       batch.update(ref, { itens: itensRestantes });
                       count++;
-                  }
-              });
-
-              caixaTotal.forEach(m => {
-                  if(m.tipo === 'REGISTRO_ITENS') {
-                      let dataRegistro = m.data.split('T')[0];
-                      let deletarRegistro = false;
-                      if (periodoGraficoAtual === 'hoje' && dataRegistro === hoje) deletarRegistro = true;
-                      if (periodoGraficoAtual === 'mes' && dataRegistro.startsWith(filtroDataMes)) deletarRegistro = true;
-                      if (periodoGraficoAtual === 'semana') {
-                          let diff = Math.floor((new Date(hoje) - new Date(dataRegistro)) / (1000 * 60 * 60 * 24));
-                          if (diff >= 0 && diff <= 7) deletarRegistro = true;
-                      }
-
-                      if (deletarRegistro) {
-                          batch.delete(db.collection("caixa").doc(m.id));
-                          count++;
-                      }
                   }
               });
 
@@ -953,7 +964,7 @@
           }).catch((e) => { tempApp.delete(); Swal.fire('Erro', e.message, 'error'); });
   }
 
-  // ================= GERENCIAR CARDÁPIO =================
+  // ================= GERENCIAR CARDÁPIO E SALVAR =================
   function abrirGerenciarCatalogo() { document.getElementById('modalGerenciarCatalogo').style.display = 'flex'; renderGerenciarCatalogo(); }
 
   function renderGerenciarCatalogo() {
@@ -962,7 +973,7 @@
           html += `
           <div style="display:flex; justify-content:space-between; background:#222; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid #444; align-items:center;">
               <div>
-                  <div style="font-weight:bold; font-size:14px; color:#fff;">${p.nome}</div>
+                  <div style="font-weight:bold; font-size:14px; color:#fff;">${p.nome} <span style="font-size:10px; color:#FFCA28; background:#3E2723; padding:2px 5px; border-radius:4px;">${p.categoria || 'OUTROS'}</span></div>
                   <div style="font-size:10px; color:#aaa;">${p.ingredientes || 'Sem ingredientes adicionais'}</div>
                   <div style="color:#66BB6A; font-weight:bold; font-size:12px; margin-top:3px;">${formatarMoeda(p.valor)}</div>
               </div>
@@ -977,23 +988,67 @@
 
   function editarProduto(id) {
       let p = catalogo.find(x => x.id === id); if(!p) return;
+      
+      let catAtual = p.categoria || 'OUTROS';
+      
       Swal.fire({
           title: 'Editar Produto',
           html: `<input id="editProdNome" class="swal2-input" placeholder="Nome" value="${p.nome}" style="margin-bottom:10px; width:80%;">
+                 
+                 <select id="editProdCat" class="swal2-input" style="margin-bottom:10px; width:80%; font-size:16px;">
+                     <option value="PASTÉIS SALGADOS" ${catAtual === 'PASTÉIS SALGADOS' ? 'selected' : ''}>Pastéis Salgados</option>
+                     <option value="PASTÉIS DOCES" ${catAtual === 'PASTÉIS DOCES' ? 'selected' : ''}>Pastéis Doces</option>
+                     <option value="BEBIDAS" ${catAtual === 'BEBIDAS' ? 'selected' : ''}>Bebidas</option>
+                     <option value="PORÇÕES" ${catAtual === 'PORÇÕES' ? 'selected' : ''}>Porções</option>
+                     <option value="OUTROS" ${catAtual === 'OUTROS' ? 'selected' : ''}>Outros</option>
+                 </select>
+
                  <input id="editProdValor" type="number" step="0.01" class="swal2-input" placeholder="Preço" value="${p.valor}" style="margin-bottom:10px; width:80%;">
                  <input id="editProdIngred" class="swal2-input" placeholder="Ingredientes" value="${p.ingredientes || ''}" style="width:80%;">`,
           showCancelButton: true, confirmButtonText: 'Salvar', confirmButtonColor: '#66BB6A', cancelButtonText: 'Cancelar',
           preConfirm: () => {
               let n = document.getElementById('editProdNome').value.trim();
+              let c = document.getElementById('editProdCat').value;
               let v = Number(document.getElementById('editProdValor').value.replace(',', '.'));
               let i = document.getElementById('editProdIngred').value.trim();
               if(!n || v <= 0) { Swal.showValidationMessage('Nome e Preço inválidos!'); return false; }
-              return { nome: n.toUpperCase(), valor: v, ingredientes: i };
+              return { nome: n.toUpperCase(), categoria: c, valor: v, ingredientes: i };
           }
-      }).then((result) => { if(result.isConfirmed) db.collection("catalogo").doc(id).update(result.value).then(() => Swal.fire({icon:'success', title:'Atualizado!', timer:1000, showConfirmButton:false})); });
+      }).then((result) => { 
+          if(result.isConfirmed) {
+              db.collection("catalogo").doc(id).update(result.value).then(() => {
+                  Swal.fire({icon:'success', title:'Atualizado!', timer:1000, showConfirmButton:false});
+                  renderGerenciarCatalogo(); 
+              });
+          } 
+      });
   }
 
   function excluirProduto(id) { Swal.fire({ title: 'Excluir Produto?', text: 'Removerá do cardápio permanentemente.', icon: 'warning', showCancelButton: true, confirmButtonColor: '#EF5350', confirmButtonText: 'Sim, excluir' }).then(r => { if(r.isConfirmed) db.collection("catalogo").doc(id).delete(); }); }
+
+  function addIngredienteTemp() { let ing = document.getElementById('novoIngrediente').value.trim(); if(ing) { ingredientesTemp.push(ing); document.getElementById('novoIngrediente').value = ''; renderIngredientesTemp(); } }
+  function removerIngredienteTemp(idx) { ingredientesTemp.splice(idx, 1); renderIngredientesTemp(); }
+  function renderIngredientesTemp() { let html = ingredientesTemp.map((i, idx) => `<span class="ingrediente-tag" onclick="removerIngredienteTemp(${idx})" title="Remover">${i} ✕</span>`).join(''); document.getElementById('listaIngredientesTemp').innerHTML = html; }
+  
+  function salvarCatalogo() { 
+      let n = document.getElementById('catNome').value; 
+      let c = document.getElementById('catCategoria').value;
+      let vStr = document.getElementById('catValor').value.replace(',','.'); 
+      let v = Number(vStr); 
+      
+      if(n && v > 0){ 
+          let ingsStr = ingredientesTemp.join(', '); 
+          db.collection("catalogo").add({ nome:n.toUpperCase(), categoria: c, valor:v, ingredientes: ingsStr }); 
+          document.getElementById('catNome').value=''; 
+          document.getElementById('catValor').value=''; 
+          document.getElementById('novoIngrediente').value=''; 
+          ingredientesTemp = []; 
+          renderIngredientesTemp(); 
+          Swal.fire('Produto Salvo!','','success'); 
+      } else { 
+          Swal.fire('Erro', 'Preencha o nome e preço', 'error'); 
+      }
+  }
 
   // ================= KDS (COZINHA) =================
   function toggleKDS() { document.body.classList.toggle('mode-kds'); if(document.body.classList.contains('mode-kds')) renderKDS(); }
@@ -1002,7 +1057,11 @@
       const p = document.getElementById('painelKDS'); p.innerHTML = ''; let pedidosAgrupados = [];
       clientes.forEach(c => {
           let itensPendentes = []; let indicesOriginais = [];
-          c.itens.forEach((i, idx) => { if(!i.pronto) { itensPendentes.push(i); indicesOriginais.push(idx); } });
+          c.itens.forEach((i, idx) => { 
+              if(!i.pronto && !i.desc.includes('🛵 TAXA DE ENTREGA') && !i.desc.includes('🔻 DESCONTO')) { 
+                  itensPendentes.push(i); indicesOriginais.push(idx); 
+              } 
+          });
           if(itensPendentes.length > 0) { pedidosAgrupados.push({ cid: c.id, nome: c.nome, itens: itensPendentes, indices: indicesOriginais, tipo: itensPendentes[0].tipo, num: itensPendentes[0].numPedido }); }
       });
 
@@ -1046,17 +1105,7 @@
       else { document.getElementById('formMesa').style.display = 'none'; document.getElementById('formDelivery').style.display = 'block'; }
   }
 
-  function limparMesa(cid) { 
-      Swal.fire({title:'Limpar Itens desta Mesa?', text: 'Isso remove os pedidos atuais, deixando a mesa livre.', icon:'warning', showCancelButton:true, confirmButtonColor:'#FF9800', confirmButtonText: 'Sim, limpar mesa'}).then(r => { 
-          if(r.isConfirmed) { 
-              let c = clientes.find(x => x.id === cid);
-              if(c && c.itens && c.itens.length > 0) {
-                  db.collection("caixa").add({ data: obterDataHoraLocal(), tipo: 'REGISTRO_ITENS', itens: c.itens });
-              }
-              db.collection("clientes").doc(cid).update({itens: []}).then(()=>Swal.fire('Mesa Limpa!','','success')); 
-          } 
-      }); 
-  }
+  function limparMesa(cid) { Swal.fire({title:'Limpar Itens desta Mesa?', text: 'Isso remove os pedidos atuais, deixando a mesa livre.', icon:'warning', showCancelButton:true, confirmButtonColor:'#FF9800', confirmButtonText: 'Sim, limpar mesa'}).then(r => { if(r.isConfirmed) { db.collection("clientes").doc(cid).update({itens: []}).then(()=>Swal.fire('Mesa Limpa!','','success')); } }); }
 
   function render() {
       let lista = document.getElementById('listaClientes'); let paginacaoBox = document.getElementById('paginacaoContainer'); lista.innerHTML = ''; paginacaoBox.innerHTML = '';
@@ -1079,6 +1128,8 @@
               let badgePronto = i.pronto ? '<span style="background:#4CAF50; color:#fff; padding:3px 6px; font-size:10px; border-radius:6px; margin-left:5px;">✅ PRONTO</span>' : '<span style="background:#EF5350; color:#fff; padding:3px 6px; font-size:10px; border-radius:6px; margin-left:5px;">⏳ COZINHA</span>';
               let status = i.pago ? '<span style="color:#66BB6A; font-weight:900;">✅ PAGO</span>' : (pg > 0 ? `<span style="color:#FFCA28; font-weight:900;">⏳ PARCIAL</span>` : `<span style="color:#EF5350; font-weight:900;">❌ ABERTO</span>`);
               let infoParcial = pg > 0 && !i.pago ? `<div style="font-size:13px; font-weight:bold; margin-top:4px;"><span style="color:#66BB6A;">Pago: ${formatarMoeda(pg)}</span><br><span style="color:#EF5350;">Resta: ${formatarMoeda(resta)}</span></div>` : '';
+
+              if(i.desc.includes('🛵 TAXA DE ENTREGA') || i.desc.includes('🔻 DESCONTO')) badgePronto = ''; // Ocultar badge de cozinha para taxas
 
               return `
                   <tr>
@@ -1154,16 +1205,30 @@
       }).catch(() => { document.getElementById('logradouro').value = ""; document.getElementById('bairro').value = ""; document.getElementById('cidade').value = ""; });
   }
 
-  function addIngredienteTemp() { let ing = document.getElementById('novoIngrediente').value.trim(); if(ing) { ingredientesTemp.push(ing); document.getElementById('novoIngrediente').value = ''; renderIngredientesTemp(); } }
-  function removerIngredienteTemp(idx) { ingredientesTemp.splice(idx, 1); renderIngredientesTemp(); }
-  function renderIngredientesTemp() { let html = ingredientesTemp.map((i, idx) => `<span class="ingrediente-tag" onclick="removerIngredienteTemp(${idx})" title="Remover">${i} ✕</span>`).join(''); document.getElementById('listaIngredientesTemp').innerHTML = html; }
-  
-  function salvarCatalogo() { 
-      let n = document.getElementById('catNome').value; let vStr = document.getElementById('catValor').value.replace(',','.'); let v = Number(vStr); 
-      if(n && v > 0){ let ingsStr = ingredientesTemp.join(', '); db.collection("catalogo").add({ nome:n.toUpperCase(), valor:v, ingredientes: ingsStr }); document.getElementById('catNome').value=''; document.getElementById('catValor').value=''; document.getElementById('novoIngrediente').value=''; ingredientesTemp = []; renderIngredientesTemp(); Swal.fire('Produto Salvo!','','success'); } 
-      else { Swal.fire('Erro', 'Preencha o nome e preço', 'error'); }
+  // ================= ATUALIZAR SELECT COM FILTRO =================
+  function atualizarSelect() { 
+      let filtroInput = document.getElementById('filtroClienteSelect');
+      let termo = filtroInput ? filtroInput.value.toLowerCase() : '';
+      let s = document.getElementById('clienteSelect'); 
+      let atual = s.value; 
+      s.innerHTML = '<option value="">Selecione na lista...</option>'; 
+      
+      let lista = clientes;
+      if(termo) {
+          lista = clientes.filter(c => 
+              c.nome.toLowerCase().includes(termo) || 
+              (c.telefone && c.telefone.replace(/\D/g, '').includes(termo.replace(/\D/g, '')))
+          );
+      }
+
+      lista.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(c => { 
+          s.innerHTML += `<option value="${c.id}">${c.nome}</option>`; 
+      }); 
+      
+      if(atual && lista.some(c => c.id === atual)) s.value = atual; 
   }
 
+  // ================= CARRINHO, TAXAS E DESCONTOS =================
   function adicionarAoCarrinho() {
       let desc = document.getElementById('descricao').value; let qtd = Number(document.getElementById('quantidade').value); let valStr = document.getElementById('valorUnitario').value.replace(',','.'); let val = Number(valStr);
       if(!desc || val <= 0) return Swal.fire('Erro', 'Selecione um produto', 'error');
@@ -1172,18 +1237,73 @@
       carrinhoCompras.push(item); renderCarrinho(); document.getElementById('descricao').value = ''; document.getElementById('quantidade').value = '1'; document.getElementById('valorUnitario').value = ''; document.getElementById('displayIngredientes').innerText = '';
   }
 
-  function renderCarrinho() {
-      let tb = document.getElementById('listaCarrinho'); let area = document.getElementById('carrinhoArea'); tb.innerHTML = '';
-      if(carrinhoCompras.length === 0) { area.style.display = 'none'; return; }
-      area.style.display = 'block'; let total = 0;
-      carrinhoCompras.forEach((i, idx) => { total += i.valor; tb.innerHTML += `<tr style="border-bottom:1px solid #444;"><td style="color:#fff; font-weight:bold;">${i.qtd}x ${i.desc}</td><td style="color:#66BB6A; font-weight:bold;">${formatarMoeda(i.valor)}</td><td style="text-align:right;"><button class="danger" onclick="carrinhoCompras.splice(${idx},1);renderCarrinho()" style="padding:6px 10px; font-weight:bold;">X</button></td></tr>`; });
+  function atualizarTotalCarrinho() {
+      let total = 0;
+      carrinhoCompras.forEach(i => total += i.valor);
+      let taxa = Number(document.getElementById('inputTaxa').value) || 0;
+      let desc = Number(document.getElementById('inputDesconto').value) || 0;
+      total = total + taxa - desc;
       document.getElementById('totalCarrinhoDisplay').innerText = formatarMoeda(total);
   }
 
-  function concluirPedido() {
-      let id = document.getElementById('clienteSelect').value; if(!id) return Swal.fire('Aviso', 'Por favor, selecione um cliente na lista acima.', 'warning');
-      db.collection("clientes").doc(id).update({itens:firebase.firestore.FieldValue.arrayUnion(...carrinhoCompras)}).then(()=>{ carrinhoCompras=[]; renderCarrinho(); Swal.fire({icon: 'success', title: 'Pedido salvo', timer: 1500, showConfirmButton: false}); db.collection("config").doc("empresa").update({"contador": Number(document.getElementById('numPedido').value)}); });
+  function renderCarrinho() {
+      let tb = document.getElementById('listaCarrinho'); let area = document.getElementById('carrinhoArea'); tb.innerHTML = '';
+      if(carrinhoCompras.length === 0) { area.style.display = 'none'; return; }
+      area.style.display = 'block'; 
+      carrinhoCompras.forEach((i, idx) => { tb.innerHTML += `<tr style="border-bottom:1px solid #444;"><td style="color:#fff; font-weight:bold;">${i.qtd}x ${i.desc}</td><td style="color:#66BB6A; font-weight:bold;">${formatarMoeda(i.valor)}</td><td style="text-align:right;"><button class="danger" onclick="carrinhoCompras.splice(${idx},1);renderCarrinho()" style="padding:6px 10px; font-weight:bold;">X</button></td></tr>`; });
+      atualizarTotalCarrinho();
   }
+
+  function concluirPedido() {
+      let id = document.getElementById('clienteSelect').value; 
+      if(!id) return Swal.fire('Aviso', 'Por favor, selecione um cliente na lista acima.', 'warning');
+      
+      let taxa = Number(document.getElementById('inputTaxa').value) || 0;
+      if(taxa > 0) carrinhoCompras.push({ desc: "🛵 TAXA DE ENTREGA", qtd: 1, valor: taxa, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, pronto: true, pago: false, notificadoAdmin: true, numPedido: document.getElementById('numPedido').value || 1 });
+      
+      let desc = Number(document.getElementById('inputDesconto').value) || 0;
+      if(desc > 0) carrinhoCompras.push({ desc: "🔻 DESCONTO APLICADO", qtd: 1, valor: -desc, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, pronto: true, pago: false, notificadoAdmin: true, numPedido: document.getElementById('numPedido').value || 1 });
+
+      db.collection("clientes").doc(id).update({itens:firebase.firestore.FieldValue.arrayUnion(...carrinhoCompras)}).then(()=>{ 
+          carrinhoCompras=[]; 
+          document.getElementById('inputTaxa').value = '';
+          document.getElementById('inputDesconto').value = '';
+          document.getElementById('filtroClienteSelect').value = ''; // Limpa a busca do cliente
+          renderCarrinho(); 
+          Swal.fire({icon: 'success', title: 'Pedido salvo', timer: 1500, showConfirmButton: false}); 
+          db.collection("config").doc("empresa").update({"contador": Number(document.getElementById('numPedido').value)}); 
+      });
+  }
+
+  // ================= MODAL DE PRODUTOS E ABAS =================
+  function abrirModalSelecaoProdutos() { 
+      categoriaFiltroModal = 'TODAS';
+      document.getElementById('buscaProdutoModal').value = ''; 
+      renderAbasCategoriasModal();
+      renderProdutosModal(); 
+      document.getElementById('modalSelecaoProdutos').style.display = 'flex'; 
+  }
+
+  function renderAbasCategoriasModal() {
+      let categorias = ['TODAS', 'PASTÉIS SALGADOS', 'PASTÉIS DOCES', 'BEBIDAS', 'PORÇÕES', 'OUTROS'];
+      let html = categorias.map(c => `<button class="tab-lista ${categoriaFiltroModal === c ? 'active' : ''}" style="white-space:nowrap; padding:8px 12px; font-size:11px;" onclick="categoriaFiltroModal='${c}'; renderAbasCategoriasModal(); renderProdutosModal();">${c}</button>`).join('');
+      document.getElementById('abasCategoriasModal').innerHTML = html;
+  }
+
+  function renderProdutosModal() { 
+      let t = document.getElementById('buscaProdutoModal').value.toLowerCase(); 
+      let html = ''; 
+      catalogo.filter(p => {
+          let matchNome = p.nome.toLowerCase().includes(t);
+          let matchCat = categoriaFiltroModal === 'TODAS' || p.categoria === categoriaFiltroModal || (!p.categoria && categoriaFiltroModal === 'TODAS');
+          return matchNome && matchCat;
+      }).forEach(p => { 
+          html += `<div style="display:flex; justify-content:space-between; background:#222; padding:15px; margin-bottom:8px; border-radius:10px; border:1px solid #444; align-items:center;"><div><div style="font-weight:900; font-size:16px; color:#fff;">${p.nome}</div><div style="font-size:11px; color:#aaa; font-style:italic;">${p.ingredientes || ''}</div><div style="color:#66BB6A; font-weight:bold; font-size:14px; margin-top:5px;">${formatarMoeda(p.valor)}</div></div><button class="dark" onclick="selecionarProduto('${p.nome}', ${p.valor}, '${p.ingredientes || ''}')" style="background:#FFCA28; color:#000; padding:10px 20px; font-size:14px;">➕</button></div>`; 
+      }); 
+      document.getElementById('listaProdutosModal').innerHTML = html || '<div style="text-align:center; color:#aaa; padding:10px;">Nenhum produto encontrado.</div>'; 
+  }
+
+  function selecionarProduto(n, v, i) { document.getElementById('descricao').value = n; document.getElementById('valorUnitario').value = v; document.getElementById('displayIngredientes').innerText = i; document.getElementById('modalSelecaoProdutos').style.display = 'none'; }
 
   // ================= CAIXA E RELATÓRIO =================
   function abrirRelatorios() { document.getElementById('areaSangria').style.display = 'none'; filtrarRelatorio('hoje', document.querySelector('.tab-btn')); document.getElementById('modalRelatorios').style.display = 'flex'; }
@@ -1389,13 +1509,27 @@
   }
   function fecharImpressao() { document.getElementById('printOverlay').style.display = 'none'; document.getElementById('printContent').innerHTML = ''; }
 
-  // ================= CRUD / AUXILIARES =================
+  // ================= DIVISÃO DE CONTA E PAGAMENTO =================
+  function calcularDivisao() {
+      let pessoas = Number(document.getElementById('dividirConta').value);
+      if(pessoas > 1 && valorSendoPagoNoModal > 0) {
+          document.getElementById('valorDividido').innerText = `(${formatarMoeda(valorSendoPagoNoModal / pessoas)} / pessoa)`;
+      } else {
+          document.getElementById('valorDividido').innerText = '';
+      }
+  }
+
   function abrirModalPagamento(id, ii) {
       payRef = {id: id, indices: [ii]};
       let item = clientes.find(c => c.id === id).itens[ii];
       let resta = (item.valor || 0) - (item.pagoValor || 0);
+      valorSendoPagoNoModal = resta;
+      
       document.getElementById('txtRestantePagamento').innerText = `Falta Receber: ${formatarMoeda(resta)}`;
       document.getElementById('valPagamentoInput').value = resta.toFixed(2).replace('.',',');
+      document.getElementById('dividirConta').value = '1';
+      document.getElementById('valorDividido').innerText = '';
+      
       document.getElementById('areaQrCodeVisor').style.display = 'none';
       document.getElementById('modalPagamento').style.display = 'flex';
   }
@@ -1416,8 +1550,12 @@
 
       if(totalResta <= 0) return Swal.fire('Aviso', 'Os itens já estão pagos.', 'info');
 
+      valorSendoPagoNoModal = totalResta;
       document.getElementById('txtRestantePagamento').innerText = `Falta Receber: ${formatarMoeda(totalResta)}`;
       document.getElementById('valPagamentoInput').value = totalResta.toFixed(2).replace('.',',');
+      document.getElementById('dividirConta').value = '1';
+      document.getElementById('valorDividido').innerText = '';
+      
       document.getElementById('areaQrCodeVisor').style.display = 'none';
       document.getElementById('modalPagamento').style.display = 'flex';
   }
@@ -1456,7 +1594,29 @@
   }
   function formatarMoeda(v) { return Number(v).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}); }
   function formatarDataBR(d) { if(!d) return ''; let p = d.split('-'); return `${p[2]}/${p[1]}`; }
-  function atualizarSelect() { let s = document.getElementById('clienteSelect'); let atual = s.value; s.innerHTML = '<option value="">Selecione o Cliente / Mesa...</option>'; clientes.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(c => { s.innerHTML += `<option value="${c.id}">${c.nome}</option>`; }); if(atual) s.value = atual; }
+  
+  // ================= ATUALIZAR SELECT COM FILTRO =================
+  function atualizarSelect() { 
+      let filtroInput = document.getElementById('filtroClienteSelect');
+      let termo = filtroInput ? filtroInput.value.toLowerCase() : '';
+      let s = document.getElementById('clienteSelect'); 
+      let atual = s.value; 
+      s.innerHTML = '<option value="">Selecione na lista...</option>'; 
+      
+      let lista = clientes;
+      if(termo) {
+          lista = clientes.filter(c => 
+              c.nome.toLowerCase().includes(termo) || 
+              (c.telefone && c.telefone.replace(/\D/g, '').includes(termo.replace(/\D/g, '')))
+          );
+      }
+
+      lista.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(c => { 
+          s.innerHTML += `<option value="${c.id}">${c.nome}</option>`; 
+      }); 
+      
+      if(atual && lista.some(c => c.id === atual)) s.value = atual; 
+  }
   
   function atualizarDashboard() { 
       let hoje = obterDataLocal(); 
@@ -1465,10 +1625,6 @@
       caixaTotal.forEach(m => { if(m.data.startsWith(hoje) && m.tipo === 'ENTRADA') tRecebido += m.valor; }); 
       document.getElementById('dashTotal').innerText = formatarMoeda(tVenda); document.getElementById('dashRecebido').innerText = formatarMoeda(tRecebido); 
   }
-  
-  function abrirModalSelecaoProdutos() { document.getElementById('buscaProdutoModal').value = ''; renderProdutosModal(); document.getElementById('modalSelecaoProdutos').style.display = 'flex'; }
-  function renderProdutosModal() { let t = document.getElementById('buscaProdutoModal').value.toLowerCase(); let html = ''; catalogo.filter(p => p.nome.toLowerCase().includes(t)).forEach(p => { html += `<div style="display:flex; justify-content:space-between; background:#222; padding:15px; margin-bottom:8px; border-radius:10px; border:1px solid #444; align-items:center;"><div><div style="font-weight:900; font-size:16px; color:#fff;">${p.nome}</div><div style="font-size:11px; color:#aaa; font-style:italic;">${p.ingredientes || ''}</div><div style="color:#66BB6A; font-weight:bold; font-size:14px; margin-top:5px;">${formatarMoeda(p.valor)}</div></div><button class="dark" onclick="selecionarProduto('${p.nome}', ${p.valor}, '${p.ingredientes || ''}')" style="background:#FFCA28; color:#000; padding:10px 20px; font-size:14px;">➕</button></div>`; }); document.getElementById('listaProdutosModal').innerHTML = html; }
-  function selecionarProduto(n, v, i) { document.getElementById('descricao').value = n; document.getElementById('valorUnitario').value = v; document.getElementById('displayIngredientes').innerText = i; document.getElementById('modalSelecaoProdutos').style.display = 'none'; }
   
   document.getElementById('logoInput').addEventListener('change', function(e) { let file = e.target.files[0]; if(!file) return; let reader = new FileReader(); reader.onload = function(event) { let img = new Image(); img.onload = function() { let c = document.createElement('canvas'); let ctx = c.getContext('2d'); let scale = 300 / img.width; c.width = 300; c.height = img.height * scale; ctx.drawImage(img, 0, 0, c.width, c.height); let base64 = c.toDataURL('image/jpeg', 0.8); db.collection("config").doc("empresa").set({logo: base64}, {merge:true}); Swal.fire('Logo Atualizada!', '', 'success'); }; img.src = event.target.result; }; reader.readAsDataURL(file); });
   
@@ -1533,17 +1689,7 @@
       }); 
   }
 
-  function excluirCliente(cid) { 
-      Swal.fire({title:'Apagar Cadastro?', text:'O cliente sumirá da lista.', icon:'error', showCancelButton:true, confirmButtonColor:'#EF5350', confirmButtonText: 'APAGAR'}).then((r) => { 
-          if(r.isConfirmed) {
-              let c = clientes.find(x => x.id === cid);
-              if(c && c.itens && c.itens.length > 0) {
-                  db.collection("caixa").add({ data: obterDataHoraLocal(), tipo: 'REGISTRO_ITENS', itens: c.itens });
-              }
-              db.collection("clientes").doc(cid).delete(); 
-          }
-      }); 
-  }
+  function excluirCliente(cid) { Swal.fire({title:'Apagar Cadastro?', text:'O cliente sumirá da lista.', icon:'error', showCancelButton:true, confirmButtonColor:'#EF5350', confirmButtonText: 'APAGAR'}).then((r) => { if(r.isConfirmed) db.collection("clientes").doc(cid).delete(); }); }
 
 </script>
 </body>
