@@ -46,6 +46,7 @@
   .tit-salgados { color: #8D6E63; border-bottom: 2px solid #8D6E63; }
   .tit-doces { color: #D88D98; border-bottom: 2px solid #D88D98; }
   .tit-bebidas { color: #4CAF50; border-bottom: 2px solid #4CAF50; }
+  .tit-outros { color: #757575; border-bottom: 2px solid #757575; }
 
   /* BARRA FLUTUANTE CARRINHO */
   .carrinho-float { position: fixed; bottom: 15px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; background: #3E2723; color: #fff; padding: 15px 20px; border-radius: 30px; display: none; justify-content: space-between; align-items: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); z-index: 1000; cursor: pointer; }
@@ -114,6 +115,11 @@
         <h4 class="categoria-titulo tit-bebidas">🥤 Bebidas</h4>
         <div id="listaBebidas"></div>
     </div>
+
+    <div id="secaoOutros" style="display:none;">
+        <h4 class="categoria-titulo tit-outros">📦 Outros</h4>
+        <div id="listaOutros"></div>
+    </div>
 </div>
 
 <div class="carrinho-float" id="carrinhoFloat" onclick="abrirCheckout()">
@@ -137,6 +143,17 @@
     <div class="checkout-content">
         <div style="margin-bottom: 20px;">
             <h4 style="color:#3E2723; margin-bottom:10px;">Itens Selecionados:</h4>
+            
+            <div class="form-section" style="padding: 10px 15px; margin-bottom: 15px; background: #fff5e6; border: 1px solid #ffe0b2;">
+                <div class="radio-box" style="margin-bottom: 0;">
+                    <input type="radio" id="modoMesa" name="modoEntrega" value="mesa" checked onchange="mudarModoEntrega()">
+                    <label for="modoMesa">🪑 Retirar/Local</label>
+                    
+                    <input type="radio" id="modoDelivery" name="modoEntrega" value="delivery" onchange="mudarModoEntrega()">
+                    <label for="modoDelivery">🛵 Delivery</label>
+                </div>
+            </div>
+
             <div id="listaItensCheckout"></div>
             <div style="text-align: right; font-size: 22px; font-weight: 900; color: #3E2723; margin-top: 15px; border-top: 2px dashed #ccc; padding-top: 10px;">
                 Total: <span id="valorTotalCheckout" style="color:var(--success);">R$ 0,00</span>
@@ -144,19 +161,16 @@
         </div>
 
         <div class="form-section">
-            <h4>Como deseja receber?</h4>
-            <div class="radio-box">
-                <input type="radio" id="modoMesa" name="modoEntrega" value="mesa" checked onchange="mudarModoEntrega()">
-                <label for="modoMesa">🪑 Estou na Loja / Mesa</label>
-                
-                <input type="radio" id="modoDelivery" name="modoEntrega" value="delivery" onchange="mudarModoEntrega()">
-                <label for="modoDelivery">🛵 Delivery</label>
-            </div>
-
+            <h4 id="tituloEntregaForm">Seus Dados</h4>
+            
             <div id="areaMesa">
                 <div class="input-group">
                     <label>Seu Nome ou Número da Mesa *</label>
                     <input type="text" id="cliNomeMesa" placeholder="Ex: Mesa 05 ou João">
+                </div>
+                <div class="input-group">
+                    <label>Seu WhatsApp (Opcional - Para receber o recibo)</label>
+                    <input type="tel" id="cliZapMesa" placeholder="(00) 00000-0000">
                 </div>
             </div>
 
@@ -237,10 +251,11 @@
   let carrinho = [];
   let numPedidoAtual = 1;
   let foneLoja = "";
+  let taxaEntregaLoja = 0; 
 
-  // MASCARAS
   $(document).ready(function(){
       $('#cliZap').mask('(00) 00000-0000');
+      $('#cliZapMesa').mask('(00) 00000-0000');
       $('#cliCep').mask('00000-000');
   });
 
@@ -251,12 +266,23 @@
               let d = doc.data();
               document.getElementById('nomeLoja').innerText = d.nome || "Cardápio";
               document.title = d.nome + " - Cardápio";
+              
               if(d.logo) {
                   document.getElementById('logoLoja').src = d.logo;
                   document.body.style.setProperty('--bg-logo', `url(${d.logo})`);
               }
+              if(d.qrCode) {
+                  document.getElementById('imgPixQrApp').src = d.qrCode;
+                  document.getElementById('imgPixQrApp').style.display = 'block';
+              }
               if(d.tel) foneLoja = d.tel.replace(/\D/g, ''); 
               if(d.contador !== undefined) numPedidoAtual = d.contador + 1;
+              
+              taxaEntregaLoja = d.taxaEntrega ? Number(d.taxaEntrega) : 0;
+              
+              if (document.getElementById('modalCheckout').style.display === 'flex') {
+                  renderizarItensCheckout();
+              }
           }
       });
 
@@ -267,19 +293,21 @@
       });
   }
 
-  // ================= RENDERIZAR CARDÁPIO SEPARADO POR CATEGORIAS =================
+  // ================= RENDERIZAR CARDÁPIO =================
   function renderizarProdutos() {
       document.getElementById('loadingCatalogo').style.display = 'none';
 
       const divSalgados = document.getElementById('listaSalgados');
       const divDoces = document.getElementById('listaDoces');
       const divBebidas = document.getElementById('listaBebidas');
+      const divOutros = document.getElementById('listaOutros');
 
       divSalgados.innerHTML = '';
       divDoces.innerHTML = '';
       divBebidas.innerHTML = '';
+      divOutros.innerHTML = '';
 
-      let countSalgados = 0; let countDoces = 0; let countBebidas = 0;
+      let countSalgados = 0; let countDoces = 0; let countBebidas = 0; let countOutros = 0;
 
       if(catalogoLoja.length === 0) {
           document.getElementById('loadingCatalogo').style.display = 'block';
@@ -287,18 +315,18 @@
           return;
       }
 
-      // Lógica automática: Palavras-chave para identificar doces e bebidas
-      const palavrasDoces = ['chocolate', 'morango', 'ouro branco', 'sonho de valsa', 'nutella', 'doce', 'brigadeiro', 'prestígio', 'creme'];
-      const palavrasBebidas = ['coca', 'suco', 'água', 'agua', 'guaraná', 'guarana', 'refrigerante', 'cerveja', 'sprite', 'fanta', 'lata', '600ml', 'litro', 'ks'];
-
       catalogoLoja.forEach(p => {
-          let nomeLower = p.nome.toLowerCase();
-          let categoria = 'salgado'; // Padrão
+          let categoria = p.categoria;
           
-          if (palavrasBebidas.some(b => nomeLower.includes(b))) {
-              categoria = 'bebida';
-          } else if (palavrasDoces.some(d => nomeLower.includes(d))) {
-              categoria = 'doce';
+          if(!categoria) {
+              let nomeLower = p.nome.toLowerCase();
+              if (['coca', 'suco', 'água', 'agua', 'guaraná', 'guarana', 'refrigerante', 'cerveja'].some(b => nomeLower.includes(b))) {
+                  categoria = 'bebida';
+              } else if (['chocolate', 'morango', 'ouro branco', 'sonho de valsa', 'doce'].some(d => nomeLower.includes(d))) {
+                  categoria = 'doce';
+              } else {
+                  categoria = 'outros';
+              }
           }
 
           let htmlItem = `
@@ -312,25 +340,27 @@
               </div>
           `;
 
-          if (categoria === 'bebida') {
+          if (categoria === 'BEBIDAS' || categoria === 'bebida') {
               divBebidas.innerHTML += htmlItem;
               countBebidas++;
-          } else if (categoria === 'doce') {
+          } else if (categoria === 'PASTÉIS DOCES' || categoria === 'doce') {
               divDoces.innerHTML += htmlItem;
               countDoces++;
-          } else {
+          } else if (categoria === 'PASTÉIS SALGADOS' || categoria === 'salgado') {
               divSalgados.innerHTML += htmlItem;
               countSalgados++;
+          } else {
+              divOutros.innerHTML += htmlItem;
+              countOutros++;
           }
       });
 
-      // Só mostra os títulos das categorias se tiver produto nela
       document.getElementById('secaoSalgados').style.display = countSalgados > 0 ? 'block' : 'none';
       document.getElementById('secaoDoces').style.display = countDoces > 0 ? 'block' : 'none';
       document.getElementById('secaoBebidas').style.display = countBebidas > 0 ? 'block' : 'none';
+      document.getElementById('secaoOutros').style.display = countOutros > 0 ? 'block' : 'none';
   }
 
-  // ================= ADICIONAR AO CARRINHO =================
   function modalAddProduto(id) {
       let p = catalogoLoja.find(x => x.id === id);
       
@@ -401,16 +431,13 @@
       document.getElementById('cartTotalFloat').innerText = formatarMoeda(totalValor);
   }
 
-  // ================= GERADOR DE PIX COM VALOR EXATO =================
   function gerarPixDinamico(valor) {
       let payload = "00020126580014br.gov.bcb.pix013698cf0042-4bb7-4c0a-89c3-99c180fb20ab27600016BR.COM.PAGSEGURO0136EB1DD9C1-0DBC-4E1F-9AA2-10B360792EE2520489995303986";
-      
       if (valor > 0) {
           let valorStr = valor.toFixed(2);
           let tamValor = valorStr.length.toString().padStart(2, '0');
           payload += "54" + tamValor + valorStr;
       }
-      
       payload += "5802BR5925NATHALIA PASCHOAL DA SILV6006IBAITI62290525PAGS0000000002603122142946304";
       
       let polinomio = 0x1021;
@@ -426,7 +453,6 @@
       return payload + crc;
   }
 
-  // ================= TELA DE CHECKOUT =================
   function abrirCheckout() {
       document.getElementById('modalCheckout').style.display = 'flex';
       renderizarItensCheckout();
@@ -440,6 +466,7 @@
       let div = document.getElementById('listaItensCheckout');
       div.innerHTML = '';
       let total = 0;
+      let isDelivery = document.getElementById('modoDelivery').checked;
       
       carrinho.forEach((item, idx) => {
           total += item.valor;
@@ -456,6 +483,18 @@
               </div>
           `;
       });
+      
+      if (isDelivery && taxaEntregaLoja > 0) {
+          total += taxaEntregaLoja;
+          div.innerHTML += `
+              <div class="item-carrinho" style="background:#fff3e0; border-color:#ff9800;">
+                  <div style="flex:1;">
+                      <div class="item-carrinho-nome">🛵 Taxa de Entrega</div>
+                      <div class="item-carrinho-preco" style="color:#e65100;">${formatarMoeda(taxaEntregaLoja)}</div>
+                  </div>
+              </div>
+          `;
+      }
       
       document.getElementById('valorTotalCheckout').innerText = formatarMoeda(total);
       
@@ -478,13 +517,17 @@
 
   function mudarModoEntrega() {
       let isDelivery = document.getElementById('modoDelivery').checked;
+      
       if(isDelivery) {
           document.getElementById('areaDelivery').style.display = 'block';
           document.getElementById('areaMesa').style.display = 'none';
+          document.getElementById('tituloEntregaForm').innerText = 'Endereço de Entrega';
       } else {
           document.getElementById('areaDelivery').style.display = 'none';
           document.getElementById('areaMesa').style.display = 'block';
+          document.getElementById('tituloEntregaForm').innerText = 'Retirada / Mesa';
       }
+      renderizarItensCheckout();
   }
   
   document.getElementById('cliPagamento').addEventListener('change', function(e) {
@@ -501,7 +544,6 @@
       });
   }
 
-  // ================= ENVIAR PEDIDO PARA O BANCO =================
   function enviarPedido() {
       if(carrinho.length === 0) return Swal.fire('Ops', 'Seu carrinho está vazio!', 'warning');
 
@@ -509,28 +551,33 @@
       let dadosCliente = { itens: [], tipoCadastro: isDelivery ? 'delivery' : 'mesa' };
       
       let endCompletoStr = "";
+      let zapCliente = "";
 
       if(!isDelivery) {
           let n = document.getElementById('cliNomeMesa').value.trim();
+          zapCliente = document.getElementById('cliZapMesa').value.trim();
           if(!n) return Swal.fire('Atenção', 'Informe seu nome ou número da mesa.', 'warning');
+          
           dadosCliente.nome = n.toUpperCase();
-          endCompletoStr = "Consumo no Local / Mesa";
+          if(zapCliente) dadosCliente.telefone = zapCliente;
+          endCompletoStr = "Consumo no Local / Retirada";
       } else {
           let n = document.getElementById('cliNome').value.trim();
-          let zap = document.getElementById('cliZap').value.trim();
+          zapCliente = document.getElementById('cliZap').value.trim();
           let rua = document.getElementById('cliRua').value.trim();
           let bairro = document.getElementById('cliBairro').value.trim();
           let ref = document.getElementById('cliRef').value.trim();
           
-          if(!n || !zap || !rua || !bairro) return Swal.fire('Atenção', 'Preencha os campos obrigatórios (Nome, WhatsApp, Rua e Bairro).', 'warning');
+          if(!n || !zapCliente || !rua || !bairro) return Swal.fire('Atenção', 'Preencha os campos obrigatórios (Nome, WhatsApp, Rua e Bairro).', 'warning');
           
           dadosCliente.nome = n.toUpperCase();
-          dadosCliente.telefone = zap;
+          dadosCliente.telefone = zapCliente;
           endCompletoStr = `${rua} - ${bairro}`;
           if(ref) endCompletoStr += ` (Ref: ${ref})`;
           dadosCliente.endereco = endCompletoStr;
       }
 
+      // CAPTURA A FORMA DE PAGAMENTO E O TROCO
       let pagamentoForma = document.getElementById('cliPagamento').options[document.getElementById('cliPagamento').selectedIndex].text;
       let troco = document.getElementById('cliTroco').value;
       let infoPagamento = pagamentoForma;
@@ -553,7 +600,24 @@
               };
           });
           
+          if (isDelivery && taxaEntregaLoja > 0) {
+              itensFinais.push({
+                  desc: "🛵 TAXA DE ENTREGA",
+                  qtd: 1,
+                  valor: taxaEntregaLoja,
+                  data: new Date().toISOString().split('T')[0],
+                  tipo: 'online',
+                  ingredientes: '',
+                  numPedido: numero,
+                  pago: false,
+                  pagoValor: 0,
+                  pronto: true,
+                  notificadoAdmin: true
+              });
+          }
+          
           dadosCliente.itens = itensFinais;
+          dadosCliente.pagamento = infoPagamento; // SALVA O PAGAMENTO NO BANCO PARA O CAIXA VER
           
           db.collection("clientes").add(dadosCliente).then(() => {
               db.collection("config").doc("empresa").update({"contador": numero});
@@ -564,20 +628,34 @@
               
               Swal.fire({
                   title: 'Pedido Recebido! 🎉',
-                  text: 'Sua comanda já está na nossa cozinha.',
+                  text: 'Sua comanda já apareceu no nosso sistema e foi para a cozinha.',
                   icon: 'success',
                   showCancelButton: true,
                   confirmButtonColor: '#4CAF50',
                   cancelButtonColor: '#888',
-                  confirmButtonText: 'Avisar no WhatsApp',
+                  confirmButtonText: 'Salvar Recibo no WhatsApp',
                   cancelButtonText: 'Fechar'
               }).then((result) => {
-                  if (result.isConfirmed && foneLoja) {
-                      let textoZap = `*NOVO PEDIDO (ONLINE)* 🍔\n\n*Cliente:* ${dadosCliente.nome}\n*Modo:* ${isDelivery ? 'Delivery 🛵' : 'Mesa/Local 🪑'}\n*Endereço:* ${endCompletoStr}\n*Pagamento:* ${infoPagamento}\n\n*Itens:*`;
+                  if (result.isConfirmed) {
+                      let nomeLojaDisplay = document.getElementById('nomeLoja').innerText;
+                      let textoZap = `*COMPROVANTE DE PEDIDO* 🍔\n\n*Olá, ${dadosCliente.nome}!* Seu pedido foi registrado com sucesso na *${nomeLojaDisplay}*.\n\n*Modo:* ${isDelivery ? 'Delivery 🛵' : 'Retirada/Local 🪑'}\n*Endereço:* ${endCompletoStr}\n*Pagamento:* ${infoPagamento}\n\n*Itens do Pedido:*`;
+                      
+                      let valorTotalZap = 0;
                       itensFinais.forEach(i => {
+                          valorTotalZap += i.valor;
                           textoZap += `\n- ${i.qtd}x ${i.desc} (R$ ${i.valor.toFixed(2)})`;
                       });
-                      let url = `https://wa.me/55${foneLoja}?text=${encodeURIComponent(textoZap)}`;
+                      
+                      textoZap += `\n\n*Total a pagar:* R$ ${valorTotalZap.toFixed(2)}\n\n_Aguarde, logo seu pedido estará pronto!_`;
+                      
+                      let numeroLimpo = zapCliente.replace(/\D/g, '');
+                      let url = "";
+                      
+                      if(numeroLimpo.length >= 10) {
+                          url = `https://wa.me/55${numeroLimpo}?text=${encodeURIComponent(textoZap)}`;
+                      } else {
+                          url = `https://wa.me/?text=${encodeURIComponent(textoZap)}`;
+                      }
                       window.open(url, '_blank');
                   }
               });
@@ -585,7 +663,6 @@
       });
   }
 
-  // Helpers
   function formatarMoeda(v) { return Number(v).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}); }
 
   function buscarCepDelivery() {
@@ -600,7 +677,6 @@
       }
   }
 
-  // START
   window.onload = carregarDadosLoja;
 
 </script>
