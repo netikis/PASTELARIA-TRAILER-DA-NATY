@@ -52,6 +52,9 @@
   .btn-fechar-alerta { background: rgba(0,0,0,0.2); border: none; color: white; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; font-size: 12px; }
   .btn-fechar-alerta:hover { background: rgba(0,0,0,0.4); }
 
+  /* ANIMAÇÃO ALERTA PEDIDO ONLINE LATERAL */
+  @keyframes piscarAlertaLateral { 0% { opacity: 1; transform: scale(1) translateX(0); } 50% { opacity: 0.9; transform: scale(1.02) translateX(-5px); } 100% { opacity: 1; transform: scale(1) translateX(0); } }
+
   /* --- MODO COZINHA (KDS) --- */
   body.mode-kds .container > *:not(#painelKDS) { display: none !important; }
   body.mode-kds #painelKDS { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; padding: 15px; padding-top: 20px; }
@@ -162,6 +165,13 @@
 </style>
 </head>
 <body>
+
+<div id="modalAlertaOnline" style="display:none; position:fixed; top:80px; right:20px; width:300px; background:#B71C1C; border:4px solid #FFEB3B; border-radius:15px; padding:20px; z-index:9999999; text-align:center; box-shadow: 0 10px 30px rgba(0,0,0,0.8); animation: piscarAlertaLateral 1s infinite;">
+    <h1 style="color: #FFF; font-size: 24px; margin: 0 0 10px 0;">🚨 NOVO PEDIDO</h1>
+    <p style="color: #FFF; font-size: 14px; margin: 0 0 10px 0;">Pedido online recebido!</p>
+    <h2 id="nomeClienteAlerta" style="color: #FFEB3B; font-size: 20px; text-transform: uppercase; margin: 0 0 15px 0;"></h2>
+    <button onclick="pararAlertaOnline()" style="background: #4CAF50; color: #FFF; font-size: 16px; padding: 15px; width: 100%; font-weight: 900; border: 2px solid #FFF; border-radius: 10px; cursor: pointer;">✅ VISUALIZADO</button>
+</div>
 
 <div id="notificationArea" class="admin-only"></div>
 
@@ -603,6 +613,46 @@
   let categoriaFiltroModal = 'TODAS';
   let valorSendoPagoNoModal = 0;
 
+  // Variáveis do Alarme Online
+  let alertaAudioInterval;
+  let idPedidoPendente = null;
+
+  // ================= SISTEMA DE ALERTAS (AUDIO E VISUAL) =================
+  function tocarSirene() {
+      try {
+          const ctx = new (window.AudioContext || window.webkitAudioContext)();
+          function beep(freq, time, vol) {
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain); gain.connect(ctx.destination);
+              osc.frequency.value = freq;
+              gain.gain.setValueAtTime(vol, ctx.currentTime + time);
+              gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + time + 0.3);
+              osc.start(ctx.currentTime + time);
+              osc.stop(ctx.currentTime + time + 0.3);
+          }
+          beep(900, 0, 1); beep(1200, 0.2, 1);
+      } catch(e) { console.log('Áudio não suportado.'); }
+  }
+
+  function dispararAlertaOnline(nomeCliente, clienteId) {
+      if(document.getElementById('modalAlertaOnline').style.display === 'block') return;
+      document.getElementById('nomeClienteAlerta').innerText = nomeCliente;
+      document.getElementById('modalAlertaOnline').style.display = 'block';
+      idPedidoPendente = clienteId;
+      tocarSirene();
+      alertaAudioInterval = setInterval(tocarSirene, 1500);
+  }
+
+  function pararAlertaOnline() {
+      document.getElementById('modalAlertaOnline').style.display = 'none';
+      clearInterval(alertaAudioInterval);
+      if (idPedidoPendente) {
+          db.collection("clientes").doc(idPedidoPendente).update({ novoOnline: false });
+          idPedidoPendente = null;
+      }
+  }
+
   // ================= SISTEMA DE DATAS =================
   function obterDataLocal() {
       let d = new Date();
@@ -880,6 +930,11 @@
                   });
                   if(needUpdate) { db.collection("clientes").doc(d.id).update({itens: data.itens}); }
                   if(clienteTemNovoPronto) { let alertaNovoCriado = mostrarAlertaPronto(data.nome, d.id); if(alertaNovoCriado) chamouBeep = true; }
+                  
+                  // VERIFICA SE TEM NOVO PEDIDO ONLINE
+                  if(data.novoOnline) {
+                      dispararAlertaOnline(data.nome, d.id);
+                  }
               }
               clientes.push({id: d.id, ...data});
           }); 
@@ -1125,7 +1180,7 @@
       clientesDaPagina.forEach(c => {
           let saldoCli = c.itens.reduce((acc, i) => acc + (Number(i.valor)||0) - (Number(i.pagoValor)||0), 0);
           
-          let pagInfo = c.pagamento ? `<div style="font-size:11px; font-weight:bold; color:#000; margin-top:5px; padding:4px 8px; background:#FFCA28; border-radius:4px; display:inline-block;">💳 Pgto: ${c.pagamento}</div>` : '';
+          let pagInfo = c.pagamento ? `<div style="font-size:12px; font-weight:900; margin-top:5px; padding:6px 10px; background:${c.pagamento.includes('Troco') ? '#FF5722' : '#FFCA28'}; color:${c.pagamento.includes('Troco') ? '#FFF' : '#000'}; border-radius:6px; display:inline-block; border: 1px solid #fff;">💰 Pgto: ${c.pagamento}</div>` : '';
 
           let itensHtml = c.itens.map((i, idx) => {
               let pg = Number(i.pagoValor) || 0; let resta = i.valor - pg;
@@ -1209,29 +1264,6 @@
           if(d.erro) { document.getElementById('logradouro').value = ""; document.getElementById('bairro').value = ""; document.getElementById('cidade').value = ""; return Swal.fire('Ops', 'CEP não encontrado', 'warning'); }
           document.getElementById('logradouro').value = d.logradouro || ''; document.getElementById('bairro').value = d.bairro || ''; document.getElementById('cidade').value = `${d.localidade}/${d.uf}`; document.getElementById('cidade').style.color = '#fff'; 
       }).catch(() => { document.getElementById('logradouro').value = ""; document.getElementById('bairro').value = ""; document.getElementById('cidade').value = ""; });
-  }
-
-  // ================= ATUALIZAR SELECT COM FILTRO =================
-  function atualizarSelect() { 
-      let filtroInput = document.getElementById('filtroClienteSelect');
-      let termo = filtroInput ? filtroInput.value.toLowerCase() : '';
-      let s = document.getElementById('clienteSelect'); 
-      let atual = s.value; 
-      s.innerHTML = '<option value="">Selecione na lista...</option>'; 
-      
-      let lista = clientes;
-      if(termo) {
-          lista = clientes.filter(c => 
-              c.nome.toLowerCase().includes(termo) || 
-              (c.telefone && c.telefone.replace(/\D/g, '').includes(termo.replace(/\D/g, '')))
-          );
-      }
-
-      lista.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(c => { 
-          s.innerHTML += `<option value="${c.id}">${c.nome}</option>`; 
-      }); 
-      
-      if(atual && lista.some(c => c.id === atual)) s.value = atual; 
   }
 
   // ================= APLICAR TAXA DE ENTREGA AUTOMÁTICA =================
@@ -1615,7 +1647,6 @@
           document.getElementById('confEmpEnd').value = empDados.end || ''; 
           document.getElementById('confEmpTel').value = empDados.tel || ''; 
           
-          // Preenche a taxa nas configurações quando abre
           if(empDados.taxaEntrega > 0) {
               document.getElementById('confEmpTaxa').value = empDados.taxaEntrega;
           } else {
@@ -1626,7 +1657,6 @@
   function formatarMoeda(v) { return Number(v).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}); }
   function formatarDataBR(d) { if(!d) return ''; let p = d.split('-'); return `${p[2]}/${p[1]}`; }
   
-  // ================= ATUALIZAR SELECT COM FILTRO =================
   function atualizarSelect() { 
       let filtroInput = document.getElementById('filtroClienteSelect');
       let termo = filtroInput ? filtroInput.value.toLowerCase() : '';
@@ -1690,7 +1720,21 @@
   }
   
   function editarDadosCliente(id) { let c = clientes.find(x => x.id === id); let novoNome = prompt("Deseja alterar o NOME?", c.nome); if(novoNome && novoNome.trim() !== '') { db.collection("clientes").doc(id).update({nome: novoNome.toUpperCase()}).then(() => Swal.fire('Nome alterado!', '', 'success')); } }
-  function compartilharZap(id) { let c = clientes.find(x => x.id === id); if(c && c.telefone) { let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}*.\n\nSeu pedido está registrado.`; window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); } else { Swal.fire('Aviso', 'Sem telefone.', 'info'); } }
+  
+  function compartilharZap(id) { 
+      let c = clientes.find(x => x.id === id); 
+      if(c && c.telefone) { 
+          let itensTexto = c.itens.map(i => `▫️ ${i.qtd}x ${i.desc} - ${formatarMoeda(i.valor)}${i.ingredientes ? `\n   ↳ Obs: ${i.ingredientes}` : ''}`).join('\n');
+          let total = c.itens.reduce((acc, i) => acc + (i.valor || 0), 0);
+          let statusPagamento = c.pagamento ? `✅ Pago via ${c.pagamento}` : '⏳ Pagamento na Entrega/Retirada';
+          
+          let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}* 🥟\n\nSeu pedido foi registrado com sucesso e já está sendo preparado!\n\n*🛒 RESUMO DO PEDIDO:*\n${itensTexto}\n\n*💰 TOTAL:* ${formatarMoeda(total)}\n*💳 STATUS:* ${statusPagamento}\n\nAgradecemos a preferência! Qualquer dúvida, é só chamar.`; 
+          
+          window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); 
+      } else { 
+          Swal.fire('Aviso', 'Este cliente não possui telefone cadastrado.', 'info'); 
+      } 
+  }
   
   function cancelarPedido(cid) {
       Swal.fire({
