@@ -246,6 +246,9 @@
               <input type="text" id="confEmpEnd" placeholder="Endereço" style="margin-bottom:8px;">
               <input type="text" id="confEmpTel" placeholder="Telefone" style="margin-bottom:8px;">
               
+              <h4 style="color:#29B6F6; margin-top:15px; margin-bottom:5px;">🛵 Taxa de Entrega</h4>
+              <input type="number" id="confEmpTaxa" placeholder="Valor da Taxa Padrão (R$)" style="margin-bottom:8px;">
+
               <h4 style="color:var(--success); margin-top:15px; margin-bottom:5px;">💠 Imagem do QR Code PIX</h4>
               <label style="font-size:11px; color:#aaa; margin-top:5px; display:block;">Selecione a imagem do QR Code:</label>
               <input type="file" id="qrInput" accept="image/*" style="margin-bottom:8px;">
@@ -345,8 +348,8 @@
     
     <div style="background:#2D1B15; padding:12px; border-radius:10px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between; border:1px solid #5D4037;">
         <div class="radio-group">
-            <label><input type="radio" name="tipoPedido" value="presencial" checked style="width:18px; height:18px; margin:0; accent-color:var(--accent);"> Presencial</label>
-            <label><input type="radio" name="tipoPedido" value="online" style="width:18px; height:18px; margin:0; accent-color:var(--accent);"> Online</label>
+            <label><input type="radio" name="tipoPedido" value="presencial" checked style="width:18px; height:18px; margin:0; accent-color:var(--accent);" onchange="aplicarTaxaPadrao()"> Presencial / Retirada</label>
+            <label><input type="radio" name="tipoPedido" value="online" style="width:18px; height:18px; margin:0; accent-color:var(--accent);" onchange="aplicarTaxaPadrao()"> Entrega / Delivery</label>
         </div>
         <div style="display:flex; align-items:center; gap:5px;">
             <span style="font-size:11px; color:#aaa; font-weight:bold;">PEDIDO Nº</span>
@@ -585,7 +588,7 @@
   const auth = firebase.auth();
   
   let clientes = []; let catalogo = []; 
-  let empDados = { nome: "Trailer da Naty", end: "", tel: "", qrCodeBase64: "" };
+  let empDados = { nome: "Trailer da Naty", end: "", tel: "", qrCodeBase64: "", taxaEntrega: 0 };
   let logoBase64 = localStorage.getItem('logoPastelaria') || "";
   let carrinhoCompras = []; let ingredientesTemp = [];
   let payRef = null; let caixaTotal = []; 
@@ -894,7 +897,7 @@
       db.collection("config").doc("empresa").onSnapshot((doc) => {
           if(doc.exists) {
               let d = doc.data();
-              empDados = { nome: d.nome, end: d.end, tel: d.tel, qrCodeBase64: d.qrCode };
+              empDados = { nome: d.nome, end: d.end, tel: d.tel, qrCodeBase64: d.qrCode, taxaEntrega: d.taxaEntrega || 0 };
               localStorage.setItem('naty_emp_data', JSON.stringify(empDados));
               atualizarInputsEmpresa();
               if(d.logo) {
@@ -1228,6 +1231,23 @@
       if(atual && lista.some(c => c.id === atual)) s.value = atual; 
   }
 
+  // ================= APLICAR TAXA DE ENTREGA AUTOMÁTICA =================
+  function aplicarTaxaPadrao() {
+      let tipo = document.querySelector('input[name="tipoPedido"]:checked').value;
+      let taxaInput = document.getElementById('inputTaxa');
+      
+      if(tipo === 'online') {
+          // Se for delivery (online), joga a taxa configurada no sistema
+          if(empDados.taxaEntrega > 0) {
+              taxaInput.value = empDados.taxaEntrega;
+          }
+      } else {
+          // Se for presencial (mesa/balcão), zera a taxa
+          taxaInput.value = '';
+      }
+      atualizarTotalCarrinho();
+  }
+
   // ================= CARRINHO, TAXAS E DESCONTOS =================
   function adicionarAoCarrinho() {
       let desc = document.getElementById('descricao').value; let qtd = Number(document.getElementById('quantidade').value); let valStr = document.getElementById('valorUnitario').value.replace(',','.'); let val = Number(valStr);
@@ -1269,6 +1289,10 @@
           document.getElementById('inputTaxa').value = '';
           document.getElementById('inputDesconto').value = '';
           document.getElementById('filtroClienteSelect').value = ''; // Limpa a busca do cliente
+          
+          // Reseta o tipo de pedido para presencial para o próximo
+          document.querySelector('input[name="tipoPedido"][value="presencial"]').checked = true;
+
           renderCarrinho(); 
           Swal.fire({icon: 'success', title: 'Pedido salvo', timer: 1500, showConfirmButton: false}); 
           db.collection("config").doc("empresa").update({"contador": Number(document.getElementById('numPedido').value)}); 
@@ -1589,7 +1613,16 @@
 
   function atualizarInputsEmpresa() { 
       if(document.getElementById('confEmpNome')) { 
-          document.getElementById('confEmpNome').value = empDados.nome; document.getElementById('confEmpEnd').value = empDados.end; document.getElementById('confEmpTel').value = empDados.tel; 
+          document.getElementById('confEmpNome').value = empDados.nome || ''; 
+          document.getElementById('confEmpEnd').value = empDados.end || ''; 
+          document.getElementById('confEmpTel').value = empDados.tel || ''; 
+          
+          // Preenche a taxa nas configurações quando abre
+          if(empDados.taxaEntrega > 0) {
+              document.getElementById('confEmpTaxa').value = empDados.taxaEntrega;
+          } else {
+              document.getElementById('confEmpTaxa').value = '';
+          }
       } 
   }
   function formatarMoeda(v) { return Number(v).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}); }
@@ -1648,10 +1681,17 @@
 
   function selecionarPerfil(p) { document.getElementById('step-1').style.display='none'; document.getElementById('step-2').style.display='block'; document.getElementById('msgLogin').innerText=''; }
   function voltarLogin() { document.getElementById('step-1').style.display='block'; document.getElementById('step-2').style.display='none'; document.getElementById('msgLogin').innerText=''; }
+  
+  // Salva no firebase a taxa configurada
   function salvarDadosEmpresa() { 
-      let n = document.getElementById('confEmpNome').value; let e = document.getElementById('confEmpEnd').value; let t = document.getElementById('confEmpTel').value; 
-      db.collection("config").doc("empresa").set({ nome: n, end: e, tel: t }, {merge: true}).then(() => Swal.fire('Configurações Salvas!','','success')); 
+      let n = document.getElementById('confEmpNome').value; 
+      let e = document.getElementById('confEmpEnd').value; 
+      let t = document.getElementById('confEmpTel').value; 
+      let tx = Number(document.getElementById('confEmpTaxa').value.replace(',', '.')) || 0; // Pega o valor da taxa
+      
+      db.collection("config").doc("empresa").set({ nome: n, end: e, tel: t, taxaEntrega: tx }, {merge: true}).then(() => Swal.fire('Configurações Salvas!','','success')); 
   }
+  
   function editarDadosCliente(id) { let c = clientes.find(x => x.id === id); let novoNome = prompt("Deseja alterar o NOME?", c.nome); if(novoNome && novoNome.trim() !== '') { db.collection("clientes").doc(id).update({nome: novoNome.toUpperCase()}).then(() => Swal.fire('Nome alterado!', '', 'success')); } }
   function compartilharZap(id) { let c = clientes.find(x => x.id === id); if(c && c.telefone) { let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}*.\n\nSeu pedido está registrado.`; window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); } else { Swal.fire('Aviso', 'Sem telefone.', 'info'); } }
   
