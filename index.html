@@ -1266,6 +1266,29 @@
       }).catch(() => { document.getElementById('logradouro').value = ""; document.getElementById('bairro').value = ""; document.getElementById('cidade').value = ""; });
   }
 
+  // ================= ATUALIZAR SELECT COM FILTRO =================
+  function atualizarSelect() { 
+      let filtroInput = document.getElementById('filtroClienteSelect');
+      let termo = filtroInput ? filtroInput.value.toLowerCase() : '';
+      let s = document.getElementById('clienteSelect'); 
+      let atual = s.value; 
+      s.innerHTML = '<option value="">Selecione na lista...</option>'; 
+      
+      let lista = clientes;
+      if(termo) {
+          lista = clientes.filter(c => 
+              c.nome.toLowerCase().includes(termo) || 
+              (c.telefone && c.telefone.replace(/\D/g, '').includes(termo.replace(/\D/g, '')))
+          );
+      }
+
+      lista.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(c => { 
+          s.innerHTML += `<option value="${c.id}">${c.nome}</option>`; 
+      }); 
+      
+      if(atual && lista.some(c => c.id === atual)) s.value = atual; 
+  }
+
   // ================= APLICAR TAXA DE ENTREGA AUTOMÁTICA =================
   function aplicarTaxaPadrao() {
       let tipo = document.querySelector('input[name="tipoPedido"]:checked').value;
@@ -1558,7 +1581,17 @@
       let total = c.itens.reduce((acc, i) => acc + (i.valor || 0), 0);
       let logoHtml = logoBase64 ? `<img src="${logoBase64}" style="width:100px; height:100px; border-radius:50%; margin-bottom:10px; object-fit:cover; border:2px solid #000;">` : '';
       let itensHtml = c.itens.map(i => `<tr><td style="text-align:left; border-bottom:1px dashed #000; padding:5px 0; font-size:14px; font-weight:bold; color:#000;">${i.qtd}x ${i.desc} ${i.ingredientes ? `<br><span style="font-weight:normal; font-size:11px;">(${i.ingredientes})</span>` : ''}</td><td style="text-align:right; border-bottom:1px dashed #000; padding:5px 0; font-size:14px; font-weight:bold; color:#000;">${formatarMoeda(i.valor)}</td></tr>`).join('');
-      document.getElementById('printContent').innerHTML = `<div style="width: 76mm; margin: 0 auto; font-family: 'Courier New', monospace; text-align: center; color:#000; background:#fff; padding-bottom:30px;">${logoHtml}<h2 style="margin:5px 0 0 0; font-size:20px; font-weight:900;">${empDados.nome}</h2><p style="font-size:12px; margin:2px 0 10px 0;">${empDados.end}<br>WhatsApp: ${empDados.tel}</p><div style="border-top:2px dashed #000; margin: 10px 0;"></div><div style="text-align:left; font-size:14px;"><b>CLIENTE:</b> ${c.nome}<br>${c.telefone ? `<b>TEL:</b> ${c.telefone}<br>` : ''}<b>ENDEREÇO:</b> ${c.endereco || 'Mesa / Retirada'}<br>${c.pagamento ? `<b>PAGAMENTO:</b> ${c.pagamento}` : ''}</div><div style="border-top:2px dashed #000; margin: 10px 0;"></div><table style="width:100%; border-collapse: collapse;">${itensHtml}</table><div style="margin-top:15px; text-align:right; font-size:20px; font-weight:900;">TOTAL: ${formatarMoeda(total)}</div><div style="border-top:2px dashed #000; margin: 15px 0;"></div><div style="margin-top:10px; font-size:14px; font-weight:bold;">OBRIGADO PELA PREFERÊNCIA!</div></div>`;
+      
+      let pagTexto = c.pagamento || '';
+      let trocoHtml = '';
+      if (pagTexto.includes('(Troco para')) {
+          let partes = pagTexto.split('(Troco para');
+          pagTexto = partes[0].trim();
+          let valorTroco = partes[1].replace(')','').trim();
+          trocoHtml = `<div style="margin-top:10px; text-align:center; font-size:18px; font-weight:900; border: 2px dashed #000; padding: 10px;">LEVAR TROCO PARA<br><span style="font-size:24px;">${valorTroco}</span></div>`;
+      }
+
+      document.getElementById('printContent').innerHTML = `<div style="width: 76mm; margin: 0 auto; font-family: 'Courier New', monospace; text-align: center; color:#000; background:#fff; padding-bottom:30px;">${logoHtml}<h2 style="margin:5px 0 0 0; font-size:20px; font-weight:900;">${empDados.nome}</h2><p style="font-size:12px; margin:2px 0 10px 0;">${empDados.end}<br>WhatsApp: ${empDados.tel}</p><div style="border-top:2px dashed #000; margin: 10px 0;"></div><div style="text-align:left; font-size:14px;"><b>CLIENTE:</b> ${c.nome}<br>${c.telefone ? `<b>TEL:</b> ${c.telefone}<br>` : ''}<b>ENDEREÇO:</b> ${c.endereco || 'Mesa / Retirada'}<br>${pagTexto ? `<b>PAGAMENTO:</b> ${pagTexto}` : ''}</div><div style="border-top:2px dashed #000; margin: 10px 0;"></div><table style="width:100%; border-collapse: collapse;">${itensHtml}</table><div style="margin-top:15px; text-align:right; font-size:20px; font-weight:900;">TOTAL: ${formatarMoeda(total)}</div>${trocoHtml}<div style="border-top:2px dashed #000; margin: 15px 0;"></div><div style="margin-top:10px; font-size:14px; font-weight:bold;">OBRIGADO PELA PREFERÊNCIA!</div></div>`;
       document.getElementById('printOverlay').style.display = 'flex'; setTimeout(() => window.print(), 500);
   }
   function fecharImpressao() { document.getElementById('printOverlay').style.display = 'none'; document.getElementById('printContent').innerHTML = ''; }
@@ -1720,21 +1753,7 @@
   }
   
   function editarDadosCliente(id) { let c = clientes.find(x => x.id === id); let novoNome = prompt("Deseja alterar o NOME?", c.nome); if(novoNome && novoNome.trim() !== '') { db.collection("clientes").doc(id).update({nome: novoNome.toUpperCase()}).then(() => Swal.fire('Nome alterado!', '', 'success')); } }
-  
-  function compartilharZap(id) { 
-      let c = clientes.find(x => x.id === id); 
-      if(c && c.telefone) { 
-          let itensTexto = c.itens.map(i => `▫️ ${i.qtd}x ${i.desc} - ${formatarMoeda(i.valor)}${i.ingredientes ? `\n   ↳ Obs: ${i.ingredientes}` : ''}`).join('\n');
-          let total = c.itens.reduce((acc, i) => acc + (i.valor || 0), 0);
-          let statusPagamento = c.pagamento ? `✅ Pago via ${c.pagamento}` : '⏳ Pagamento na Entrega/Retirada';
-          
-          let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}* 🥟\n\nSeu pedido foi registrado com sucesso e já está sendo preparado!\n\n*🛒 RESUMO DO PEDIDO:*\n${itensTexto}\n\n*💰 TOTAL:* ${formatarMoeda(total)}\n*💳 STATUS:* ${statusPagamento}\n\nAgradecemos a preferência! Qualquer dúvida, é só chamar.`; 
-          
-          window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); 
-      } else { 
-          Swal.fire('Aviso', 'Este cliente não possui telefone cadastrado.', 'info'); 
-      } 
-  }
+  function compartilharZap(id) { let c = clientes.find(x => x.id === id); if(c && c.telefone) { let msg = `Olá *${c.nome}*! Aqui é do *${empDados.nome}*.\n\nSeu pedido está registrado.`; window.open(`https://wa.me/55${c.telefone.replace(/\D/g,'')}?text=${encodeURIComponent(msg)}`, '_blank'); } else { Swal.fire('Aviso', 'Sem telefone.', 'info'); } }
   
   function cancelarPedido(cid) {
       Swal.fire({
