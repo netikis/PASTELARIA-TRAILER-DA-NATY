@@ -663,7 +663,7 @@
   function obterDataLocal() {
       let d = new Date();
       let z = d.getTimezoneOffset() * 60000;
-      return (new Date(d - z)).toISOString().split('T');
+      return (new Date(d - z)).toISOString().split('T')[0];
   }
   
   function obterDataHoraLocal() {
@@ -716,22 +716,26 @@
       let produtosVendidos = {};
 
       let todosItensParaGrafico = [];
-      clientes.forEach(c => { c.itens.forEach(i => todosItensParaGrafico.push(i)); });
-      caixaTotal.forEach(m => { if(m.tipo === 'REGISTRO_ITENS' && m.itens) { m.itens.forEach(i => todosItensParaGrafico.push(i)); } });
+      clientes.forEach(c => { if(Array.isArray(c.itens)) c.itens.forEach(i => todosItensParaGrafico.push(i)); });
+      caixaTotal.forEach(m => { if(m.tipo === 'REGISTRO_ITENS' && Array.isArray(m.itens)) { m.itens.forEach(i => todosItensParaGrafico.push(i)); } });
 
       todosItensParaGrafico.forEach(i => {
           let incluir = false;
-          if (periodo === 'hoje' && i.data === hoje) { incluir = true; }
-          if (periodo === 'mes' && i.data && i.data.startsWith(filtroDataMes)) { incluir = true; }
-          if (periodo === 'semana' && i.data) {
-              let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
+          let d = String(i.data || '');
+          if (periodo === 'hoje' && d.startsWith(hoje)) { incluir = true; }
+          if (periodo === 'mes' && d.startsWith(filtroDataMes)) { incluir = true; }
+          if (periodo === 'semana' && d) {
+              let dataMov = d.split('T')[0];
+              let diff = Math.floor((new Date(hoje) - new Date(dataMov)) / (1000 * 60 * 60 * 24));
               if (diff >= 0 && diff <= 7) { incluir = true; }
           }
 
           if (incluir) {
-              let nomeProduto = i.desc.trim().toUpperCase();
-              if (!produtosVendidos[nomeProduto]) { produtosVendidos[nomeProduto] = 0; }
-              produtosVendidos[nomeProduto] += Number(i.qtd);
+              let nomeProduto = String(i.desc || '').trim().toUpperCase();
+              if(nomeProduto) {
+                  if (!produtosVendidos[nomeProduto]) { produtosVendidos[nomeProduto] = 0; }
+                  produtosVendidos[nomeProduto] += Number(i.qtd) || 0;
+              }
           }
       });
 
@@ -785,12 +789,15 @@
               let count = 0;
 
               clientes.forEach(c => {
+                  if(!Array.isArray(c.itens)) return;
                   let itensRestantes = c.itens.filter(i => {
                       let deletar = false;
-                      if (periodoGraficoAtual === 'hoje' && i.data === hoje) { deletar = true; }
-                      if (periodoGraficoAtual === 'mes' && i.data && i.data.startsWith(filtroDataMes)) { deletar = true; }
-                      if (periodoGraficoAtual === 'semana' && i.data) {
-                          let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
+                      let d = String(i.data || '');
+                      if (periodoGraficoAtual === 'hoje' && d.startsWith(hoje)) { deletar = true; }
+                      if (periodoGraficoAtual === 'mes' && d.startsWith(filtroDataMes)) { deletar = true; }
+                      if (periodoGraficoAtual === 'semana' && d) {
+                          let dataMov = d.split('T')[0];
+                          let diff = Math.floor((new Date(hoje) - new Date(dataMov)) / (1000 * 60 * 60 * 24));
                           if (diff >= 0 && diff <= 7) { deletar = true; }
                       }
                       return !deletar;
@@ -880,7 +887,7 @@
       $('#cep').mask('00000-000');
       $('#cpf_cnpj').mask('000.000.000-00', {onKeyPress: function(val, e, field, options) { field.mask(val.length > 14 ? '00.000.000/0000-00' : '000.000.000-000'); }});
       
-      document.getElementById('dataEntrada').value = obterDataLocal();
+      document.getElementById('dataEntrada').value = obterDataHoraLocal();
       
       const savedEmp = JSON.parse(localStorage.getItem('naty_emp_data'));
       if(savedEmp) { empDados = savedEmp; atualizarInputsEmpresa(); }
@@ -952,7 +959,7 @@
           clientes = []; let chamouBeep = false;
           snap.forEach((d) => {
               let data = d.data();
-              if(roleUsuarioAtual === 'admin') {
+              if(roleUsuarioAtual === 'admin' && Array.isArray(data.itens)) {
                   let needUpdate = false; let clienteTemNovoPronto = false;
                   data.itens = data.itens.map(i => {
                       if(i.pronto && !i.notificadoAdmin) { clienteTemNovoPronto = true; needUpdate = true; return {...i, notificadoAdmin: true}; }
@@ -1068,7 +1075,7 @@
 
   function renderGerenciarCatalogo() {
       let html = '';
-      catalogo.sort((a,b) => a.nome.localeCompare(b.nome)).forEach(p => {
+      catalogo.sort((a,b) => String(a.nome||'').localeCompare(String(b.nome||''))).forEach(p => {
           html += `
           <div style="display:flex; justify-content:space-between; background:#222; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid #444; align-items:center;">
               <div>
@@ -1152,16 +1159,18 @@
   // ================= KDS (COZINHA) =================
   function toggleKDS() { document.body.classList.toggle('mode-kds'); if(document.body.classList.contains('mode-kds')) renderKDS(); }
 
-  function renderKDS() {
+ function renderKDS() {
       const p = document.getElementById('painelKDS'); p.innerHTML = ''; let pedidosAgrupados = [];
       clientes.forEach(c => {
+          if(!Array.isArray(c.itens)) return;
           let itensPendentes = []; let indicesOriginais = [];
           c.itens.forEach((i, idx) => { 
               if(!i.pronto && !i.desc.includes('🛵 TAXA DE ENTREGA') && !i.desc.includes('🔻 DESCONTO')) { 
                   itensPendentes.push(i); indicesOriginais.push(idx); 
               } 
           });
-          if(itensPendentes.length > 0) { pedidosAgrupados.push({ cid: c.id, nome: c.nome, itens: itensPendentes, indices: indicesOriginais, tipo: itensPendentes.tipo, num: itensPendentes.numPedido }); }
+          
+          if(itensPendentes.length > 0) { pedidosAgrupados.push({ cid: c.id, nome: c.nome, itens: itensPendentes, indices: indicesOriginais, tipo: itensPendentes[0].tipo, num: itensPendentes[0].numPedido }); }
       });
 
       if(pedidosAgrupados.length === 0) { p.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:50px;"><h2 style="color:#fff; font-size:32px;">Cozinha Livre! 🎉</h2></div>'; return; }
@@ -1185,12 +1194,51 @@
       });
   }
 
-  function marcarGrupoPronto(cid, indicesStr) { let indices = indicesStr.split(',').map(Number); let c = clientes.find(x => x.id === cid); let itens = [...c.itens]; indices.forEach(idx => { itens[idx].pronto = true; itens[idx].notificadoAdmin = false; }); db.collection("clientes").doc(cid).update({itens}); }
+ function marcarGrupoPronto(cid, indicesStr) { 
+      // 1. Feedback visual imediato: escurece o card para você saber que o clique funcionou
+      const botao = event.target;
+      const card = botao.closest('.kds-card');
+      if (card) {
+          card.style.opacity = '0.5';
+          card.style.pointerEvents = 'none';
+          botao.innerText = '⏳ PROCESSANDO...';
+      }
 
+      let indices = indicesStr.split(',').map(Number); 
+      let c = clientes.find(x => x.id === cid); 
+      let itens = [...c.itens]; 
+      
+      indices.forEach(idx => { 
+          itens[idx].pronto = true; 
+          itens[idx].notificadoAdmin = false; 
+      }); 
+
+      // 2. Atualiza o Firebase
+      db.collection("clientes").doc(cid).update({itens}).then(() => {
+          // 3. Força a remontagem da tela da cozinha para garantir que o pedido sumiu
+          renderKDS();
+      }).catch(err => {
+          console.error("Erro ao atualizar status:", err);
+          if (card) {
+              card.style.opacity = '1';
+              card.style.pointerEvents = 'auto';
+              botao.innerText = '✅ PEDIDO PRONTO';
+          }
+      });
+  }
   // ================= FILTRO DE ABAS & LIMPAR MESA =================
   function setFiltroLista(tipo) {
-      filtroListaAtual = tipo; document.querySelectorAll('.tab-lista').forEach(b => b.classList.remove('active'));
-      if(tipo==='todos') document.getElementById('tabListaTodos').classList.add('active'); if(tipo==='mesa') document.getElementById('tabListaMesa').classList.add('active'); if(tipo==='delivery') document.getElementById('tabListaDelivery').classList.add('active');
+      filtroListaAtual = tipo; 
+      
+      // Remove a seleção SÓ das abas de navegação (preservando o modal)
+      document.getElementById('tabListaTodos').classList.remove('active');
+      document.getElementById('tabListaMesa').classList.remove('active');
+      document.getElementById('tabListaDelivery').classList.remove('active');
+      
+      if(tipo==='todos') document.getElementById('tabListaTodos').classList.add('active'); 
+      if(tipo==='mesa') document.getElementById('tabListaMesa').classList.add('active'); 
+      if(tipo==='delivery') document.getElementById('tabListaDelivery').classList.add('active');
+      
       resetPaginacaoERender();
   }
   
@@ -1215,7 +1263,7 @@
       }).then(r => { 
           if(r.isConfirmed) { 
               let c = clientes.find(x => x.id === cid);
-              if (c && c.itens && c.itens.length > 0) {
+              if (c && Array.isArray(c.itens) && c.itens.length > 0) {
                   db.collection("caixa").add({
                       tipo: 'REGISTRO_ITENS',
                       data: obterDataHoraLocal(),
@@ -1235,27 +1283,58 @@
       let termo = document.getElementById('searchBox').value.toLowerCase();
       
       let listaFiltrada = clientes.filter(c => {
-          let matchFiltro = (filtroListaAtual === 'todos') || (c.tipoCadastro === filtroListaAtual) || (!c.tipoCadastro && filtroListaAtual === 'delivery');
-          let matchBusca = c.nome.toLowerCase().includes(termo);
-          return matchFiltro && matchBusca;
+      // 1. Mantém os filtros que você já selecionou (Todos, Mesas ou Delivery)
+      let matchFiltro = (filtroListaAtual === 'todos') || (c.tipoCadastro === filtroListaAtual) || (!c.tipoCadastro && filtroListaAtual === 'delivery');
+      
+      // 2. BUSCA: Verifica se o nome combina com o que você digitou na busca
+      let nomeStr = String(c.nome || ''); 
+      let matchBusca = nomeStr.toLowerCase().includes(termo);
+
+      // 3. PRIORIDADE TOTAL: Se o pedido for "novoOnline", ele DEVE aparecer
+      if (c.novoOnline === true) return true;
+
+      return matchFiltro && matchBusca;
+  });
+
+      listaFiltrada.sort((a, b) => {
+          let itensA = Array.isArray(a.itens) ? a.itens : [];
+          let itensB = Array.isArray(b.itens) ? b.itens : [];
+          let nomeA = String(a.nome || "");
+          let nomeB = String(b.nome || "");
+
+          let aPendente = itensA.some(i => !i.pago || !i.pronto);
+          let bPendente = itensB.some(i => !i.pago || !i.pronto);
+          
+          if (aPendente && !bPendente) return -1;
+          if (!aPendente && bPendente) return 1;
+          
+          let mapA = itensA.map(i => Number(i.numPedido) || 0);
+          let mapB = itensB.map(i => Number(i.numPedido) || 0);
+          let numA = mapA.length > 0 ? Math.max(...mapA) : 0;
+          let numB = mapB.length > 0 ? Math.max(...mapB) : 0;
+          
+          if (numA !== numB) return numB - numA;
+
+          return nomeA.localeCompare(nomeB);
       });
 
       let totalPaginas = Math.ceil(listaFiltrada.length / ITENS_POR_PAGINA); if (paginaAtual > totalPaginas && totalPaginas > 0) paginaAtual = totalPaginas; if (paginaAtual < 1) paginaAtual = 1;
       let inicio = (paginaAtual - 1) * ITENS_POR_PAGINA; let fim = inicio + ITENS_POR_PAGINA; let clientesDaPagina = listaFiltrada.slice(inicio, fim);
 
       clientesDaPagina.forEach(c => {
-          let saldoCli = c.itens.reduce((acc, i) => acc + (Number(i.valor)||0) - (Number(i.pagoValor)||0), 0);
+          let itensSeguros = Array.isArray(c.itens) ? c.itens : [];
+          let saldoCli = itensSeguros.reduce((acc, i) => acc + (Number(i.valor)||0) - (Number(i.pagoValor)||0), 0);
           
           let pagInfo = c.pagamento ? `<div style="font-size:12px; font-weight:900; margin-top:5px; padding:6px 10px; background:${c.pagamento.includes('Troco') ? '#FF5722' : '#FFCA28'}; color:${c.pagamento.includes('Troco') ? '#FFF' : '#000'}; border-radius:6px; display:inline-block; border: 1px solid #fff;">💰 Pgto: ${c.pagamento}</div>` : '';
 
-          let itensHtml = c.itens.map((i, idx) => {
+          let itensHtml = itensSeguros.map((i, idx) => {
               let pg = Number(i.pagoValor) || 0; let resta = i.valor - pg;
               let badge = i.tipo === 'online' ? '<span style="background:#2196F3; color:#fff; padding:3px 6px; font-size:10px; border-radius:6px; margin-left:5px;">ONLINE</span>' : '<span style="background:#FF9800; color:#000; padding:3px 6px; font-size:10px; border-radius:6px; margin-left:5px;">PRESENCIAL</span>';
               let badgePronto = i.pronto ? '<span style="background:#4CAF50; color:#fff; padding:3px 6px; font-size:10px; border-radius:6px; margin-left:5px;">✅ PRONTO</span>' : '<span style="background:#EF5350; color:#fff; padding:3px 6px; font-size:10px; border-radius:6px; margin-left:5px;">⏳ COZINHA</span>';
               let status = i.pago ? '<span style="color:#66BB6A; font-weight:900;">✅ PAGO</span>' : (pg > 0 ? `<span style="color:#FFCA28; font-weight:900;">⏳ PARCIAL</span>` : `<span style="color:#EF5350; font-weight:900;">❌ ABERTO</span>`);
               let infoParcial = pg > 0 && !i.pago ? `<div style="font-size:13px; font-weight:bold; margin-top:4px;"><span style="color:#66BB6A;">Pago: ${formatarMoeda(pg)}</span><br><span style="color:#EF5350;">Resta: ${formatarMoeda(resta)}</span></div>` : '';
 
-              if(i.desc.includes('🛵 TAXA DE ENTREGA') || i.desc.includes('🔻 DESCONTO')) badgePronto = ''; 
+              if(String(i.desc||'').includes('🛵 TAXA DE ENTREGA') || String(i.desc||'').includes('🔻 DESCONTO')) badgePronto = ''; 
 
               return `
                   <tr>
@@ -1307,7 +1386,6 @@
       }
   }
 
-  // ================= CADASTRO CLIENTE E PEDIDO =================
   function adicionarCliente(){ 
       let tipo = document.querySelector('input[name="tipoCadastro"]:checked').value; let dados = { itens: [], tipoCadastro: tipo };
 
@@ -1332,7 +1410,6 @@
       }).catch(() => { document.getElementById('logradouro').value = ""; document.getElementById('bairro').value = ""; document.getElementById('cidade').value = ""; });
   }
 
-  // ================= ATUALIZAR SELECT COM FILTRO =================
   function atualizarSelect() { 
       let filtroInput = document.getElementById('filtroClienteSelect');
       let termo = filtroInput ? filtroInput.value.toLowerCase() : '';
@@ -1343,34 +1420,30 @@
       let lista = clientes;
       if(termo) {
           lista = clientes.filter(c => 
-              c.nome.toLowerCase().includes(termo) || 
+              String(c.nome||'').toLowerCase().includes(termo) || 
               (c.telefone && c.telefone.replace(/\D/g, '').includes(termo.replace(/\D/g, '')))
           );
       }
 
-      lista.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(c => { 
+      lista.sort((a,b)=>String(a.nome||'').localeCompare(String(b.nome||''))).forEach(c => { 
           s.innerHTML += `<option value="${c.id}">${c.nome}</option>`; 
       }); 
       
       if(atual && lista.some(c => c.id === atual)) s.value = atual; 
   }
 
-  // ================= APLICAR TAXA DE ENTREGA AUTOMÁTICA =================
   function aplicarTaxaPadrao() {
       let tipo = document.querySelector('input[name="tipoPedido"]:checked').value;
       let taxaInput = document.getElementById('inputTaxa');
       
       if(tipo === 'online') {
-          if(empDados.taxaEntrega > 0) {
-              taxaInput.value = empDados.taxaEntrega;
-          }
+          if(empDados.taxaEntrega > 0) { taxaInput.value = empDados.taxaEntrega; }
       } else {
           taxaInput.value = '';
       }
       atualizarTotalCarrinho();
   }
 
-  // ================= CARRINHO, TAXAS E DESCONTOS =================
   function adicionarAoCarrinho() {
       let desc = document.getElementById('descricao').value; let qtd = Number(document.getElementById('quantidade').value); let valStr = document.getElementById('valorUnitario').value.replace(',','.'); let val = Number(valStr);
       if(!desc || val <= 0) return Swal.fire('Erro', 'Selecione um produto', 'error');
@@ -1418,7 +1491,6 @@
       });
   }
 
-  // ================= MODAL DE PRODUTOS E ABAS =================
   function abrirModalSelecaoProdutos() { 
       categoriaFiltroModal = 'TODAS';
       document.getElementById('buscaProdutoModal').value = ''; 
@@ -1437,7 +1509,7 @@
       let t = document.getElementById('buscaProdutoModal').value.toLowerCase(); 
       let html = ''; 
       catalogo.filter(p => {
-          let matchNome = p.nome.toLowerCase().includes(t);
+          let matchNome = String(p.nome||'').toLowerCase().includes(t);
           let matchCat = categoriaFiltroModal === 'TODAS' || p.categoria === categoriaFiltroModal || (!p.categoria && categoriaFiltroModal === 'TODAS');
           return matchNome && matchCat;
       }).forEach(p => { 
@@ -1448,29 +1520,63 @@
 
   function selecionarProduto(n, v, i) { document.getElementById('descricao').value = n; document.getElementById('valorUnitario').value = v; document.getElementById('displayIngredientes').innerText = i; document.getElementById('modalSelecaoProdutos').style.display = 'none'; }
 
+  // ================= TRADUTOR DE DATAS =================
+  function normalizarData(dStr) {
+      if(!dStr) return '';
+      let dataLimpa = String(dStr).split('T')[0];
+      if(dataLimpa.includes('/')) {
+          let p = dataLimpa.split('/');
+          if(p.length === 3) return `${p[2]}-${p[1]}-${p[0]}`; 
+      }
+      return dataLimpa;
+  }
+
   // ================= CAIXA E RELATÓRIO =================
   function abrirRelatorios() { document.getElementById('areaSangria').style.display = 'none'; filtrarRelatorio('hoje', document.querySelector('.tab-btn')); document.getElementById('modalRelatorios').style.display = 'flex'; }
+
+  function atualizarDashboard() { 
+      let hoje = normalizarData(obterDataLocal()); 
+      let tVenda = 0, tRecebido = 0; 
+      clientes.forEach(c => { 
+          if(Array.isArray(c.itens)) {
+              c.itens.forEach(i => { 
+                  let dataItem = normalizarData(i.data);
+                  if(dataItem.startsWith(hoje)) tVenda += (i.valor || 0); 
+              }); 
+          }
+      }); 
+      caixaTotal.forEach(m => { 
+          let dataCaixa = normalizarData(m.data);
+          if(dataCaixa.startsWith(hoje) && m.tipo === 'ENTRADA') tRecebido += m.valor; 
+      }); 
+      document.getElementById('dashTotal').innerText = formatarMoeda(tVenda); 
+      document.getElementById('dashRecebido').innerText = formatarMoeda(tRecebido); 
+  }
 
   function filtrarRelatorio(periodo, btn) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); if(btn) btn.classList.add('active');
       
       window.periodoRelatorioAtual = periodo;
       
-      let hoje = obterDataLocal();
-      let filtroData = periodo === 'hoje' ? hoje : (periodo === 'mes' ? hoje.slice(0, 7) : "");
+      let dataHojeNormalizada = normalizarData(obterDataLocal());
+      let filtroData = periodo === 'hoje' ? dataHojeNormalizada : (periodo === 'mes' ? dataHojeNormalizada.slice(0, 7) : "");
       
       let movs = caixaTotal.filter(m => { 
+          let dStr = normalizarData(m.data);
+          if(!dStr) return false;
           if(periodo === 'semana') { 
-              let dataMov = m.data.split('T');
-              let diff = Math.floor((new Date(hoje) - new Date(dataMov)) / (1000 * 60 * 60 * 24)); 
+              let diff = Math.floor((new Date(dataHojeNormalizada) - new Date(dStr)) / (1000 * 60 * 60 * 24)); 
               return diff >= 0 && diff <= 7; 
           } 
-          return m.data.startsWith(filtroData); 
+          return dStr.startsWith(filtroData); 
       });
 
       let totDin = 0, totPix = 0, totCart = 0, totQr = 0, totOnline = 0, totSaida = 0; let htmlSangrias = '';
       movs.forEach(m => {
-          if(m.tipo === 'SAIDA') { totSaida += m.valor; let dataHoraFormatada = new Date(m.data).toLocaleDateString('pt-BR') + ' ' + new Date(m.data).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}); htmlSangrias += `<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 5px 0; font-size: 12px; color: #ccc;"><span>${dataHoraFormatada} - <b>${m.obs || 'Sem motivo'}</b></span><span style="color: #EF5350; font-weight: bold;">${formatarMoeda(m.valor)}</span></div>`; }
+          if(m.tipo === 'SAIDA') { 
+              totSaida += m.valor; 
+              htmlSangrias += `<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 5px 0; font-size: 12px; color: #ccc;"><span>${m.data} - <b>${m.obs || 'Sem motivo'}</b></span><span style="color: #EF5350; font-weight: bold;">${formatarMoeda(m.valor)}</span></div>`; 
+          }
           else if(m.tipo === 'ENTRADA') { 
               if(m.metodo === 'DINHEIRO') totDin += m.valor; 
               if(m.metodo === 'PIX') totPix += m.valor; 
@@ -1494,22 +1600,26 @@
       let produtosVendidosNoPeriodo = {};
       
       let todosItensRelatorio = [];
-      clientes.forEach(c => { c.itens.forEach(i => todosItensRelatorio.push(i)); });
-      caixaTotal.forEach(m => { if(m.tipo === 'REGISTRO_ITENS' && m.itens) { m.itens.forEach(i => todosItensRelatorio.push(i)); } });
+      clientes.forEach(c => { if(Array.isArray(c.itens)) c.itens.forEach(i => todosItensRelatorio.push(i)); });
+      caixaTotal.forEach(m => { if(m.tipo === 'REGISTRO_ITENS' && Array.isArray(m.itens)) { m.itens.forEach(i => todosItensRelatorio.push(i)); } });
 
       todosItensRelatorio.forEach(i => {
           let incluir = false;
-          if (periodo === 'hoje' && i.data === hoje) { incluir = true; }
-          if (periodo === 'mes' && i.data && i.data.startsWith(filtroData)) { incluir = true; }
-          if (periodo === 'semana' && i.data) {
-              let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
+          let dStr = normalizarData(i.data);
+          
+          if (periodo === 'hoje' && dStr.startsWith(filtroData)) { incluir = true; }
+          if (periodo === 'mes' && dStr.startsWith(filtroData)) { incluir = true; }
+          if (periodo === 'semana' && dStr) {
+              let diff = Math.floor((new Date(dataHojeNormalizada) - new Date(dStr)) / (1000 * 60 * 60 * 24));
               if (diff >= 0 && diff <= 7) { incluir = true; }
           }
           
           if(incluir) {
-              let nomeProduto = i.desc.trim().toUpperCase();
-              if (!produtosVendidosNoPeriodo[nomeProduto]) { produtosVendidosNoPeriodo[nomeProduto] = 0; }
-              produtosVendidosNoPeriodo[nomeProduto] += Number(i.qtd);
+              let nomeProduto = String(i.desc||'').trim().toUpperCase();
+              if(nomeProduto) {
+                  if (!produtosVendidosNoPeriodo[nomeProduto]) { produtosVendidosNoPeriodo[nomeProduto] = 0; }
+                  produtosVendidosNoPeriodo[nomeProduto] += Number(i.qtd) || 0;
+              }
           }
       });
 
@@ -1527,7 +1637,6 @@
       document.getElementById('listaProdutosRelatorio').innerHTML = htmlProdutos;
   }
 
-  // ================= SALVAR PDF AUTOMÁTICO =================
   function imprimirRelatorioCaixa() {
       let periodoStr = "Relatório de Vendas";
       let hojeStr = obterDataLocal().split('-').reverse().join('/');
@@ -1632,11 +1741,12 @@
               
               caixaTotal.forEach(m => {
                   let deletar = false;
+                  let dStr = String(m.data || '');
                   
-                  if (periodo === 'hoje' && m.data.startsWith(hoje)) { deletar = true; }
-                  if (periodo === 'mes' && m.data.startsWith(filtroDataMes)) { deletar = true; }
-                  if (periodo === 'semana') {
-                      let dataMov = m.data.split('T');
+                  if (periodo === 'hoje' && dStr.startsWith(hoje)) { deletar = true; }
+                  if (periodo === 'mes' && dStr.startsWith(filtroDataMes)) { deletar = true; }
+                  if (periodo === 'semana' && dStr) {
+                      let dataMov = dStr.split('T')[0];
                       let diff = Math.floor((new Date(hoje) - new Date(dataMov)) / (1000 * 60 * 60 * 24)); 
                       if (diff >= 0 && diff <= 7) { deletar = true; }
                   }
@@ -1676,7 +1786,6 @@
   }
   function fecharImpressao() { document.getElementById('printOverlay').style.display = 'none'; document.getElementById('printContent').innerHTML = ''; }
 
-  // ================= DIVISÃO DE CONTA E PAGAMENTO =================
   function calcularDivisao() {
       let pessoas = Number(document.getElementById('dividirConta').value);
       if(pessoas > 1 && valorSendoPagoNoModal > 0) {
@@ -1769,14 +1878,12 @@
   }
   
   function formatarMoeda(v) { return Number(v).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}); }
-  function formatarDataBR(d) { if(!d) return ''; let p = d.split('-'); return `${p}/${p}`; }
-  
-  function atualizarDashboard() { 
-      let hoje = obterDataLocal(); 
-      let tVenda = 0, tRecebido = 0; 
-      clientes.forEach(c => { c.itens.forEach(i => { if(i.data === hoje) tVenda += (i.valor || 0); }); }); 
-      caixaTotal.forEach(m => { if(m.data.startsWith(hoje) && m.tipo === 'ENTRADA') tRecebido += m.valor; }); 
-      document.getElementById('dashTotal').innerText = formatarMoeda(tVenda); document.getElementById('dashRecebido').innerText = formatarMoeda(tRecebido); 
+  function formatarDataBR(d) { 
+      if(!d) return ''; 
+      let datePart = String(d).split('T')[0]; 
+      let p = datePart.split('-'); 
+      if(p.length === 3) return `${p[2]}/${p[1]}`; 
+      return String(d); 
   }
   
   document.getElementById('logoInput').addEventListener('change', function(e) { let file = e.target.files; if(!file) return; let reader = new FileReader(); reader.onload = function(event) { let img = new Image(); img.onload = function() { let c = document.createElement('canvas'); let ctx = c.getContext('2d'); let scale = 300 / img.width; c.width = 300; c.height = img.height * scale; ctx.drawImage(img, 0, 0, c.width, c.height); let base64 = c.toDataURL('image/jpeg', 0.8); db.collection("config").doc("empresa").set({logo: base64}, {merge:true}); Swal.fire('Logo Atualizada!', '', 'success'); }; img.src = event.target.result; }; reader.readAsDataURL(file); });
