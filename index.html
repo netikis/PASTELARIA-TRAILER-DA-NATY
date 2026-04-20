@@ -245,6 +245,7 @@
       </div>
       <button class="primary" onclick="abrirRelatorios()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; font-weight:bold;">📊 RELATÓRIO<br>FINANCEIRO</button>
       <button class="dark" onclick="abrirGraficos()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; background:#FFCA28; color:#000; font-weight:900;">📈 GRÁFICO<br>PRODUTOS</button>
+      <button id="btnStatusLoja" class="success" onclick="toggleStatusLoja()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; font-weight:900;">🟢 DELIVERY<br>ABERTO</button>
   </div>
 
   <details class="card admin-only" style="padding:10px;">
@@ -603,7 +604,7 @@
   const auth = firebase.auth();
   
   let clientes = []; let catalogo = []; 
-  let empDados = { nome: "Trailer da Naty", end: "", tel: "", qrCodeBase64: "", taxaEntrega: 0 };
+  let empDados = { nome: "Trailer da Naty", end: "", tel: "", qrCodeBase64: "", taxaEntrega: 0, statusLoja: 'aberto' };
   let logoBase64 = localStorage.getItem('logoPastelaria') || "";
   let carrinhoCompras = []; let ingredientesTemp = [];
   let payRef = null; let caixaTotal = []; 
@@ -671,6 +672,28 @@
       return (new Date(d - z)).toISOString(); 
   }
 
+  // ================= CONTROLE DE LOJA ABERTA/FECHADA =================
+  function toggleStatusLoja() {
+      let novoStatus = empDados.statusLoja === 'fechado' ? 'aberto' : 'fechado';
+      let txt = novoStatus === 'fechado' ? 'Fechar o Delivery?' : 'Abrir o Delivery?';
+      
+      Swal.fire({
+          title: txt,
+          text: novoStatus === 'fechado' ? 'Os clientes online verão que o delivery está fechado.' : 'O sistema voltará a receber pedidos.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: novoStatus === 'fechado' ? '#EF5350' : '#66BB6A',
+          confirmButtonText: 'Sim, ' + (novoStatus === 'fechado' ? 'Fechar' : 'Abrir')
+      }).then((r) => {
+          if(r.isConfirmed) {
+              db.collection("config").doc("empresa").set({ statusLoja: novoStatus }, { merge: true })
+              .then(() => {
+                  Swal.fire({icon: 'success', title: 'Status Atualizado!', timer: 1000, showConfirmButton: false});
+              });
+          }
+      });
+  }
+
   // ================= SISTEMA DE GRÁFICOS (PRODUTOS VENDIDOS) =================
   function abrirGraficos() {
       document.getElementById('modalGraficos').style.display = 'flex';
@@ -692,7 +715,6 @@
       let filtroDataMes = hoje.slice(0, 7);
       let produtosVendidos = {};
 
-      // LÓGICA CORRIGIDA: Pega os itens das mesas ativas E os itens arquivados
       let todosItensParaGrafico = [];
       clientes.forEach(c => { c.itens.forEach(i => todosItensParaGrafico.push(i)); });
       caixaTotal.forEach(m => { if(m.tipo === 'REGISTRO_ITENS' && m.itens) { m.itens.forEach(i => todosItensParaGrafico.push(i)); } });
@@ -939,7 +961,6 @@
                   if(needUpdate) { db.collection("clientes").doc(d.id).update({itens: data.itens}); }
                   if(clienteTemNovoPronto) { let alertaNovoCriado = mostrarAlertaPronto(data.nome, d.id); if(alertaNovoCriado) chamouBeep = true; }
                   
-                  // VERIFICA SE TEM NOVO PEDIDO ONLINE
                   if(data.novoOnline) {
                       dispararAlertaOnline(data.nome, d.id);
                   }
@@ -959,7 +980,20 @@
       db.collection("config").doc("empresa").onSnapshot((doc) => {
           if(doc.exists) {
               let d = doc.data();
-              empDados = { nome: d.nome, end: d.end, tel: d.tel, qrCodeBase64: d.qrCode, taxaEntrega: d.taxaEntrega || 0 };
+              empDados = { nome: d.nome, end: d.end, tel: d.tel, qrCodeBase64: d.qrCode, taxaEntrega: d.taxaEntrega || 0, statusLoja: d.statusLoja || 'aberto' };
+              
+              // Atualiza o botão de status visualmente
+              let btnStatus = document.getElementById('btnStatusLoja');
+              if(btnStatus) {
+                  if(empDados.statusLoja === 'fechado') {
+                      btnStatus.className = 'danger';
+                      btnStatus.innerHTML = '🔴 DELIVERY<br>FECHADO';
+                  } else {
+                      btnStatus.className = 'success';
+                      btnStatus.innerHTML = '🟢 DELIVERY<br>ABERTO';
+                  }
+              }
+
               localStorage.setItem('naty_emp_data', JSON.stringify(empDados));
               atualizarInputsEmpresa();
               if(d.logo) {
