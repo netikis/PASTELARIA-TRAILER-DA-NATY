@@ -2025,30 +2025,74 @@
   }
 
   function processarPagamento(metodo) {
-      let valor = Number(document.getElementById('valPagamentoInput').value.replace(',','.'));
-      if(!valor || valor <= 0) return Swal.fire('Erro', 'Valor inválido', 'error');
+      // 1. Pega o valor digitado no input (aceita vírgula ou ponto)
+      let valorPagoTotal = Number(document.getElementById('valPagamentoInput').value.replace(',', '.'));
+      
+      if (!valorPagoTotal || valorPagoTotal <= 0) {
+          return Swal.fire('Erro', 'Por favor, insira um valor válido para o pagamento.', 'error');
+      }
 
       let {id, indices} = payRef;
       let c = clientes.find(x => x.id === id);
-      let itens = [...c.itens];
-      let valorRestantePagamento = valor;
+      if (!c) return;
 
+      let itens = [...c.itens];
+      let valorRestanteParaAbater = valorPagoTotal;
+
+      // 2. Lógica de Divisão: Percorre os itens selecionados e vai "quitando" um por um
       indices.forEach(ii => {
-          if (valorRestantePagamento <= 0) return;
-          let restaItem = (itens[ii].valor || 0) - (itens[ii].pagoValor || 0);
-          if (restaItem > 0) {
-              let abater = Math.min(restaItem, valorRestantePagamento);
-              itens[ii].pagoValor = (itens[ii].pagoValor || 0) + abater;
-              if(itens[ii].pagoValor >= itens[ii].valor) itens[ii].pago = true;
-              valorRestantePagamento -= abater;
+          if (valorRestanteParaAbater <= 0) return; // Já usou todo o dinheiro que o cliente deu
+
+          let item = itens[ii];
+          let valorTotalItem = Number(item.valor) || 0;
+          let jaPagoNoItem = Number(item.pagoValor) || 0;
+          let saldoDevedorItem = valorTotalItem - jaPagoNoItem;
+
+          if (saldoDevedorItem > 0) {
+              // Calcula quanto deste item será pago com o valor disponível
+              let abaterNesteItem = Math.min(saldoDevedorItem, valorRestanteParaAbater);
+              
+              // Atualiza os valores do item
+              item.pagoValor = jaPagoNoItem + abaterNesteItem;
+              
+              // Se quitou o valor total, marca como pago
+              if (item.pagoValor >= (valorTotalItem - 0.01)) { // Margem pequena para erros de centavos
+                  item.pago = true;
+              } else {
+                  item.pago = false;
+              }
+
+              // Subtrai o que foi usado do montante principal
+              valorRestanteParaAbater -= abaterNesteItem;
           }
       });
 
-      db.collection("clientes").doc(id).update({itens});
-      db.collection("caixa").add({ data: obterDataHoraLocal(), valor: valor, metodo: metodo, tipo: 'ENTRADA', obs: `Pagamento: ${c.nome}` });
-
-      document.getElementById('modalPagamento').style.display = 'none';
-      Swal.fire({icon:'success', title:'Recebido!', timer:1000, showConfirmButton:false});
+      // 3. Salva as alterações no Firebase
+      db.collection("clientes").doc(id).update({ itens: itens })
+      .then(() => {
+          // 4. Registra a entrada no fluxo de caixa
+          return db.collection("caixa").add({ 
+              data: obterDataHoraLocal(), 
+              valor: valorPagoTotal, 
+              metodo: metodo, 
+              tipo: 'ENTRADA', 
+              obs: `Pagamento ${metodo}: ${c.nome}` 
+          });
+      })
+      .then(() => {
+          document.getElementById('modalPagamento').style.display = 'none';
+          Swal.fire({
+              icon: 'success', 
+              title: 'Pagamento Registrado!', 
+              text: `Recebido: ${formatarMoeda(valorPagoTotal)}`,
+              timer: 2000, 
+              showConfirmButton: false
+          });
+      })
+      .catch(err => {
+          console.error("Erro ao processar pagamento:", err);
+          Swal.fire('Erro', 'Não foi possível salvar o pagamento.', 'error');
+      });
   }
 
   function atualizarInputsEmpresa() { 
