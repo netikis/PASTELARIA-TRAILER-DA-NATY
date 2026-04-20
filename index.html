@@ -494,6 +494,8 @@
             <button class="dark" onclick="processarPagamento('CARTAO')" style="padding:15px; font-size:14px; background:#FFCA28; color:#000;">💳 CARTÃO</button>
             <button class="dark" onclick="processarPagamento('QRCODE')" style="padding:15px; font-size:14px; background:#AB47BC; color:#FFF;">📱 PAGO VIA QR CODE</button>
         </div>
+        <button class="dark" onclick="processarPagamento('ONLINE')" style="width:100%; margin-top:10px; padding:15px; font-size:14px; background:#4CAF50; color:#FFF; font-weight:bold;">🌐 PAGO ONLINE (SITE)</button>
+
         <button class="danger" onclick="document.getElementById('modalPagamento').style.display='none'" style="width:100%; margin-top:20px; padding:15px;">CANCELAR</button>
     </div>
 </div>
@@ -539,6 +541,9 @@
             </div>
             <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444; padding:10px 0; font-size:16px;">
                 <span>📱 QR Code:</span> <b id="relQrCode" style="color:#AB47BC">R$ 0,00</b>
+            </div>
+            <div style="display:flex; justify-content:space-between; border-bottom:1px solid #444; padding:10px 0; font-size:16px;">
+                <span>🌐 Online/Site:</span> <b id="relOnline" style="color:#4CAF50">R$ 0,00</b>
             </div>
             <div style="display:flex; justify-content:space-between; padding-top:10px; color:#EF5350; font-size:16px;">
                 <span>🔻 Saídas (Gastos):</span> <b id="relSangria">R$ 0,00</b>
@@ -657,7 +662,7 @@
   function obterDataLocal() {
       let d = new Date();
       let z = d.getTimezoneOffset() * 60000;
-      return (new Date(d - z)).toISOString().split('T')[0];
+      return (new Date(d - z)).toISOString().split('T');
   }
   
   function obterDataHoraLocal() {
@@ -687,22 +692,25 @@
       let filtroDataMes = hoje.slice(0, 7);
       let produtosVendidos = {};
 
-      clientes.forEach(c => {
-          c.itens.forEach(i => {
-              let incluir = false;
-              if (periodo === 'hoje' && i.data === hoje) { incluir = true; }
-              if (periodo === 'mes' && i.data && i.data.startsWith(filtroDataMes)) { incluir = true; }
-              if (periodo === 'semana' && i.data) {
-                  let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
-                  if (diff >= 0 && diff <= 7) { incluir = true; }
-              }
+      // LÓGICA CORRIGIDA: Pega os itens das mesas ativas E os itens arquivados
+      let todosItensParaGrafico = [];
+      clientes.forEach(c => { c.itens.forEach(i => todosItensParaGrafico.push(i)); });
+      caixaTotal.forEach(m => { if(m.tipo === 'REGISTRO_ITENS' && m.itens) { m.itens.forEach(i => todosItensParaGrafico.push(i)); } });
 
-              if (incluir) {
-                  let nomeProduto = i.desc.trim().toUpperCase();
-                  if (!produtosVendidos[nomeProduto]) { produtosVendidos[nomeProduto] = 0; }
-                  produtosVendidos[nomeProduto] += Number(i.qtd);
-              }
-          });
+      todosItensParaGrafico.forEach(i => {
+          let incluir = false;
+          if (periodo === 'hoje' && i.data === hoje) { incluir = true; }
+          if (periodo === 'mes' && i.data && i.data.startsWith(filtroDataMes)) { incluir = true; }
+          if (periodo === 'semana' && i.data) {
+              let diff = Math.floor((new Date(hoje) - new Date(i.data)) / (1000 * 60 * 60 * 24));
+              if (diff >= 0 && diff <= 7) { incluir = true; }
+          }
+
+          if (incluir) {
+              let nomeProduto = i.desc.trim().toUpperCase();
+              if (!produtosVendidos[nomeProduto]) { produtosVendidos[nomeProduto] = 0; }
+              produtosVendidos[nomeProduto] += Number(i.qtd);
+          }
       });
 
       let labels = Object.keys(produtosVendidos).sort((a, b) => produtosVendidos[b] - produtosVendidos[a]);
@@ -980,7 +988,7 @@
   }
 
   function restaurarBackup() {
-      let input = document.getElementById('inputBackup'); let file = input.files[0];
+      let input = document.getElementById('inputBackup'); let file = input.files;
       if(!file) return Swal.fire('Erro', 'Por favor, selecione um arquivo JSON primeiro.', 'error');
       Swal.fire({ title: 'ATENÇÃO!', text: "Restaurar este backup irá sobrescrever as configurações atuais e adicionar os dados salvos. Tem certeza?", icon: 'warning', showCancelButton: true, confirmButtonColor: '#EF5350', confirmButtonText: 'Sim, Restaurar Arquivo' }).then((result) => {
           if (result.isConfirmed) {
@@ -1119,7 +1127,7 @@
                   itensPendentes.push(i); indicesOriginais.push(idx); 
               } 
           });
-          if(itensPendentes.length > 0) { pedidosAgrupados.push({ cid: c.id, nome: c.nome, itens: itensPendentes, indices: indicesOriginais, tipo: itensPendentes[0].tipo, num: itensPendentes[0].numPedido }); }
+          if(itensPendentes.length > 0) { pedidosAgrupados.push({ cid: c.id, nome: c.nome, itens: itensPendentes, indices: indicesOriginais, tipo: itensPendentes.tipo, num: itensPendentes.numPedido }); }
       });
 
       if(pedidosAgrupados.length === 0) { p.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:50px;"><h2 style="color:#fff; font-size:32px;">Cozinha Livre! 🎉</h2></div>'; return; }
@@ -1162,7 +1170,31 @@
       else { document.getElementById('formMesa').style.display = 'none'; document.getElementById('formDelivery').style.display = 'block'; }
   }
 
-  function limparMesa(cid) { Swal.fire({title:'Limpar Itens desta Mesa?', text: 'Isso remove os pedidos atuais, deixando a mesa livre.', icon:'warning', showCancelButton:true, confirmButtonColor:'#FF9800', confirmButtonText: 'Sim, limpar mesa'}).then(r => { if(r.isConfirmed) { db.collection("clientes").doc(cid).update({itens: []}).then(()=>Swal.fire('Mesa Limpa!','','success')); } }); }
+  function limparMesa(cid) { 
+      Swal.fire({
+          title:'Limpar Itens desta Mesa?', 
+          text: 'Os itens serão guardados no histórico e a mesa ficará livre.', 
+          icon:'warning', 
+          showCancelButton:true, 
+          confirmButtonColor:'#FF9800', 
+          confirmButtonText: 'Sim, limpar mesa'
+      }).then(r => { 
+          if(r.isConfirmed) { 
+              let c = clientes.find(x => x.id === cid);
+              if (c && c.itens && c.itens.length > 0) {
+                  db.collection("caixa").add({
+                      tipo: 'REGISTRO_ITENS',
+                      data: obterDataHoraLocal(),
+                      itens: c.itens
+                  }).then(() => {
+                      db.collection("clientes").doc(cid).update({itens: []}).then(()=>Swal.fire('Mesa Limpa!','','success')); 
+                  });
+              } else {
+                  db.collection("clientes").doc(cid).update({itens: []}).then(()=>Swal.fire('Mesa Limpa!','','success')); 
+              }
+          } 
+      }); 
+  }
 
   function render() {
       let lista = document.getElementById('listaClientes'); let paginacaoBox = document.getElementById('paginacaoContainer'); lista.innerHTML = ''; paginacaoBox.innerHTML = '';
@@ -1395,23 +1427,35 @@
       
       let movs = caixaTotal.filter(m => { 
           if(periodo === 'semana') { 
-              let dataMov = m.data.split('T')[0];
+              let dataMov = m.data.split('T');
               let diff = Math.floor((new Date(hoje) - new Date(dataMov)) / (1000 * 60 * 60 * 24)); 
               return diff >= 0 && diff <= 7; 
           } 
           return m.data.startsWith(filtroData); 
       });
 
-      let totDin = 0, totPix = 0, totCart = 0, totQr = 0, totSaida = 0; let htmlSangrias = '';
+      let totDin = 0, totPix = 0, totCart = 0, totQr = 0, totOnline = 0, totSaida = 0; let htmlSangrias = '';
       movs.forEach(m => {
           if(m.tipo === 'SAIDA') { totSaida += m.valor; let dataHoraFormatada = new Date(m.data).toLocaleDateString('pt-BR') + ' ' + new Date(m.data).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'}); htmlSangrias += `<div style="display: flex; justify-content: space-between; border-bottom: 1px solid #444; padding: 5px 0; font-size: 12px; color: #ccc;"><span>${dataHoraFormatada} - <b>${m.obs || 'Sem motivo'}</b></span><span style="color: #EF5350; font-weight: bold;">${formatarMoeda(m.valor)}</span></div>`; }
-          else if(m.tipo === 'ENTRADA') { if(m.metodo === 'DINHEIRO') totDin += m.valor; if(m.metodo === 'PIX') totPix += m.valor; if(m.metodo === 'CARTAO') totCart += m.valor; if(m.metodo === 'QRCODE') totQr += m.valor; }
+          else if(m.tipo === 'ENTRADA') { 
+              if(m.metodo === 'DINHEIRO') totDin += m.valor; 
+              if(m.metodo === 'PIX') totPix += m.valor; 
+              if(m.metodo === 'CARTAO') totCart += m.valor; 
+              if(m.metodo === 'QRCODE') totQr += m.valor; 
+              if(m.metodo === 'ONLINE') totOnline += m.valor;
+          }
       });
 
       let areaDetalhes = document.getElementById('listaSangriasDetalhada'); let divDetalhes = document.getElementById('conteudoListaSangrias');
       if (totSaida > 0) { areaDetalhes.style.display = 'block'; divDetalhes.innerHTML = htmlSangrias; } else { areaDetalhes.style.display = 'none'; divDetalhes.innerHTML = ''; }
 
-      document.getElementById('relDinheiro').innerText = formatarMoeda(totDin); document.getElementById('relPix').innerText = formatarMoeda(totPix); document.getElementById('relCartao').innerText = formatarMoeda(totCart); document.getElementById('relQrCode').innerText = formatarMoeda(totQr); document.getElementById('relSangria').innerText = formatarMoeda(totSaida); document.getElementById('relSaldoFinal').innerText = formatarMoeda((totDin + totPix + totCart + totQr) - totSaida);
+      document.getElementById('relDinheiro').innerText = formatarMoeda(totDin); 
+      document.getElementById('relPix').innerText = formatarMoeda(totPix); 
+      document.getElementById('relCartao').innerText = formatarMoeda(totCart); 
+      document.getElementById('relQrCode').innerText = formatarMoeda(totQr); 
+      document.getElementById('relOnline').innerText = formatarMoeda(totOnline);
+      document.getElementById('relSangria').innerText = formatarMoeda(totSaida); 
+      document.getElementById('relSaldoFinal').innerText = formatarMoeda((totDin + totPix + totCart + totQr + totOnline) - totSaida);
 
       let produtosVendidosNoPeriodo = {};
       
@@ -1462,6 +1506,7 @@
       let vPix = document.getElementById('relPix').innerText;
       let vCar = document.getElementById('relCartao').innerText;
       let vQr = document.getElementById('relQrCode').innerText;
+      let vOnl = document.getElementById('relOnline').innerText;
       let vSai = document.getElementById('relSangria').innerText;
       let vLiq = document.getElementById('relSaldoFinal').innerText;
 
@@ -1482,6 +1527,7 @@
               <div style="display:flex; justify-content:space-between; font-size:16px; margin-bottom:3px;"><span>Pix:</span> <b>${vPix}</b></div>
               <div style="display:flex; justify-content:space-between; font-size:16px; margin-bottom:3px;"><span>Cartão:</span> <b>${vCar}</b></div>
               <div style="display:flex; justify-content:space-between; font-size:16px; margin-bottom:3px;"><span>QR Code:</span> <b>${vQr}</b></div>
+              <div style="display:flex; justify-content:space-between; font-size:16px; margin-bottom:3px;"><span>Online/Site:</span> <b>${vOnl}</b></div>
               <div style="display:flex; justify-content:space-between; font-size:16px; margin-bottom:10px; color:#c00;"><span>Saídas:</span> <b>${vSai}</b></div>
               
               <div style="display:flex; justify-content:space-between; font-size:20px; font-weight:900; border-top: 1px solid #000; padding-top:5px;"><span>LÍQUIDO:</span> <span>${vLiq}</span></div>
@@ -1556,7 +1602,7 @@
                   if (periodo === 'hoje' && m.data.startsWith(hoje)) { deletar = true; }
                   if (periodo === 'mes' && m.data.startsWith(filtroDataMes)) { deletar = true; }
                   if (periodo === 'semana') {
-                      let dataMov = m.data.split('T')[0];
+                      let dataMov = m.data.split('T');
                       let diff = Math.floor((new Date(hoje) - new Date(dataMov)) / (1000 * 60 * 60 * 24)); 
                       if (diff >= 0 && diff <= 7) { deletar = true; }
                   }
@@ -1586,8 +1632,8 @@
       let trocoHtml = '';
       if (pagTexto.includes('(Troco para')) {
           let partes = pagTexto.split('(Troco para');
-          pagTexto = partes[0].trim();
-          let valorTroco = partes[1].replace(')','').trim();
+          pagTexto = partes.trim();
+          let valorTroco = partes.replace(')','').trim();
           trocoHtml = `<div style="margin-top:10px; text-align:center; font-size:18px; font-weight:900; border: 2px dashed #000; padding: 10px;">LEVAR TROCO PARA<br><span style="font-size:24px;">${valorTroco}</span></div>`;
       }
 
@@ -1687,30 +1733,9 @@
           }
       } 
   }
-  function formatarMoeda(v) { return Number(v).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}); }
-  function formatarDataBR(d) { if(!d) return ''; let p = d.split('-'); return `${p[2]}/${p[1]}`; }
   
-  function atualizarSelect() { 
-      let filtroInput = document.getElementById('filtroClienteSelect');
-      let termo = filtroInput ? filtroInput.value.toLowerCase() : '';
-      let s = document.getElementById('clienteSelect'); 
-      let atual = s.value; 
-      s.innerHTML = '<option value="">Selecione na lista...</option>'; 
-      
-      let lista = clientes;
-      if(termo) {
-          lista = clientes.filter(c => 
-              c.nome.toLowerCase().includes(termo) || 
-              (c.telefone && c.telefone.replace(/\D/g, '').includes(termo.replace(/\D/g, '')))
-          );
-      }
-
-      lista.sort((a,b)=>a.nome.localeCompare(b.nome)).forEach(c => { 
-          s.innerHTML += `<option value="${c.id}">${c.nome}</option>`; 
-      }); 
-      
-      if(atual && lista.some(c => c.id === atual)) s.value = atual; 
-  }
+  function formatarMoeda(v) { return Number(v).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'}); }
+  function formatarDataBR(d) { if(!d) return ''; let p = d.split('-'); return `${p}/${p}`; }
   
   function atualizarDashboard() { 
       let hoje = obterDataLocal(); 
@@ -1720,10 +1745,10 @@
       document.getElementById('dashTotal').innerText = formatarMoeda(tVenda); document.getElementById('dashRecebido').innerText = formatarMoeda(tRecebido); 
   }
   
-  document.getElementById('logoInput').addEventListener('change', function(e) { let file = e.target.files[0]; if(!file) return; let reader = new FileReader(); reader.onload = function(event) { let img = new Image(); img.onload = function() { let c = document.createElement('canvas'); let ctx = c.getContext('2d'); let scale = 300 / img.width; c.width = 300; c.height = img.height * scale; ctx.drawImage(img, 0, 0, c.width, c.height); let base64 = c.toDataURL('image/jpeg', 0.8); db.collection("config").doc("empresa").set({logo: base64}, {merge:true}); Swal.fire('Logo Atualizada!', '', 'success'); }; img.src = event.target.result; }; reader.readAsDataURL(file); });
+  document.getElementById('logoInput').addEventListener('change', function(e) { let file = e.target.files; if(!file) return; let reader = new FileReader(); reader.onload = function(event) { let img = new Image(); img.onload = function() { let c = document.createElement('canvas'); let ctx = c.getContext('2d'); let scale = 300 / img.width; c.width = 300; c.height = img.height * scale; ctx.drawImage(img, 0, 0, c.width, c.height); let base64 = c.toDataURL('image/jpeg', 0.8); db.collection("config").doc("empresa").set({logo: base64}, {merge:true}); Swal.fire('Logo Atualizada!', '', 'success'); }; img.src = event.target.result; }; reader.readAsDataURL(file); });
   
   document.getElementById('qrInput').addEventListener('change', function(e) { 
-      let file = e.target.files[0]; if(!file) return; 
+      let file = e.target.files; if(!file) return; 
       let reader = new FileReader(); 
       reader.onload = function(event) { 
           let img = new Image(); 
