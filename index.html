@@ -245,6 +245,7 @@
       </div>
       <button class="primary" onclick="abrirRelatorios()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; font-weight:bold;">📊 RELATÓRIO<br>FINANCEIRO</button>
       <button class="dark" onclick="abrirGraficos()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; background:#FFCA28; color:#000; font-weight:900;">📈 GRÁFICO<br>PRODUTOS</button>
+      <button class="primary" onclick="abrirBalancoGeral()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; background:#AB47BC; color:#fff; font-weight:900;">📅 BALANÇO<br>HISTÓRICO</button>
       <button id="btnStatusLoja" class="success" onclick="toggleStatusLoja()" style="flex:1; font-size:12px; border-radius:10px; min-width:100px; font-weight:900;">🟢 DELIVERY<br>ABERTO</button>
   </div>
 
@@ -424,6 +425,42 @@
 
 </div>
 
+<div class="modal" id="modalBalancoGeral">
+    <div class="modal-content" style="max-width: 700px; background: #2c1a0e;">
+        <h3 style="text-align:center; font-size:24px; color:#AB47BC; font-weight: 900; margin-bottom: 5px;">📅 Balanço Geral</h3>
+        <p style="text-align:center; color:#aaa; font-size:12px; margin-top:0; margin-bottom:15px;">Navegue pelas pastas para ver seu histórico financeiro fechado.</p>
+        
+        <div id="balancoNav" style="background:#3E2723; padding:10px; border-radius:8px; margin-bottom:15px; display:flex; gap:10px; align-items:center; border:1px dashed #AB47BC;">
+            <button class="dark" onclick="renderBalancoAnos()" style="padding:8px 12px; font-size:12px; background:#5D4037; color:#fff;">🏠 INÍCIO (ANOS)</button>
+            <span id="balancoCaminho" style="color:#FFCA28; font-weight:bold; font-size:14px;"></span>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-bottom:15px; text-align:center; flex-wrap:wrap;">
+            <div style="flex:1; background:#1B5E20; padding:15px; border-radius:8px; min-width: 100px;">
+                <div style="font-size:12px; color:#A5D6A7; font-weight:bold;">🟢 ENTRADAS</div>
+                <div id="balTotEntrada" style="font-size:18px; font-weight:900; color:#fff;">R$ 0,00</div>
+            </div>
+            <div style="flex:1; background:#B71C1C; padding:15px; border-radius:8px; min-width: 100px;">
+                <div style="font-size:12px; color:#EF9A9A; font-weight:bold;">🔴 SAÍDAS</div>
+                <div id="balTotSaida" style="font-size:18px; font-weight:900; color:#fff;">R$ 0,00</div>
+            </div>
+            <div style="flex:1; background:#2D1B15; padding:15px; border-radius:8px; border:1px solid #FFCA28; min-width: 100px;">
+                <div style="font-size:12px; color:#FFCA28; font-weight:bold;">💰 LÍQUIDO</div>
+                <div id="balTotLiquido" style="font-size:18px; font-weight:900; color:#FFCA28;">R$ 0,00</div>
+            </div>
+        </div>
+
+        <div style="background:#fff; padding:15px; border-radius:10px; margin-bottom:15px; border:3px solid #3E2723; position: relative; height: 250px;">
+            <canvas id="graficoBalancoGeral"></canvas>
+        </div>
+
+        <div id="balancoPastas" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap:10px; margin-bottom:15px; max-height: 250px; overflow-y:auto; padding-right:5px;">
+        </div>
+
+        <button class="danger" onclick="document.getElementById('modalBalancoGeral').style.display='none'" style="width:100%; padding:15px; font-size:16px; font-weight:900;">❌ FECHAR BALANÇO</button>
+    </div>
+</div>
+
 <div class="modal" id="modalGraficos">
     <div class="modal-content" style="max-width: 600px;">
         <h3 style="text-align:center; font-size:22px; color:#29B6F6;">📈 Balanço de Produtos</h3>
@@ -439,7 +476,7 @@
             <canvas id="graficoProdutos"></canvas>
         </div>
         
-        <button class="warning" onclick="zerarContagemGrafico()" style="width:100%; padding:15px; font-size:14px; margin-bottom:15px; font-weight:900; color:#000;">🗑️ ZERAR CONTAGEM (LIMPAR VENDAS DO PERÍODO)</button>
+        <button class="warning" onclick="fecharCaixa(periodoGraficoAtual)" style="width:100%; padding:15px; font-size:14px; margin-bottom:15px; font-weight:900; color:#000;">📦 ARQUIVAR DADOS DO GRÁFICO (FECHAR PERÍODO)</button>
 
         <button class="danger" onclick="document.getElementById('modalGraficos').style.display='none'" style="width:100%; padding:15px; font-size:16px;">FECHAR GRÁFICO</button>
     </div>
@@ -571,9 +608,9 @@
         </div>
         
         <div style="display:flex; gap:5px; margin-top:10px;">
-            <button class="danger" onclick="zerarRelatorio('hoje')" style="flex:1; padding:10px; font-size:11px; font-weight:bold;">🗑️ ZERAR DIA</button>
-            <button class="danger" onclick="zerarRelatorio('semana')" style="flex:1; padding:10px; font-size:11px; font-weight:bold;">🗑️ ZERAR 7 DIAS</button>
-            <button class="danger" onclick="zerarRelatorio('mes')" style="flex:1; padding:10px; font-size:11px; font-weight:bold;">🗑️ ZERAR MÊS</button>
+            <button class="primary" onclick="fecharCaixa('hoje')" style="flex:1; padding:10px; font-size:11px; font-weight:bold; background:#5D4037; border: 1px solid #AB47BC;">📦 FECHAR CAIXA (HOJE)</button>
+            <button class="primary" onclick="fecharCaixa('semana')" style="flex:1; padding:10px; font-size:11px; font-weight:bold; background:#5D4037; border: 1px solid #AB47BC;">📦 FECHAR 7 DIAS</button>
+            <button class="primary" onclick="fecharCaixa('mes')" style="flex:1; padding:10px; font-size:11px; font-weight:bold; background:#5D4037; border: 1px solid #AB47BC;">📦 FECHAR MÊS</button>
         </div>
 
         <div id="areaSangria" style="display:none; margin-top:15px; background:#4E342E; padding:15px; border-radius:10px; border:1px dashed var(--warning);">
@@ -584,7 +621,7 @@
             </div>
             <button class="success" onclick="lancarSangria()" style="width:100%; padding:12px; font-size:14px;">CONFIRMAR SAÍDA</button>
         </div>
-        <button class="dark" onclick="document.getElementById('modalRelatorios').style.display='none'" style="width:100%; margin-top:20px; padding:15px; font-size:16px;">FECHAR RELATÓRIO</button>
+        <button class="dark" onclick="document.getElementById('modalRelatorios').style.display='none'" style="width:100%; margin-top:20px; padding:15px; font-size:16px;">SAIR DA TELA</button>
     </div>
 </div>
 
@@ -720,6 +757,8 @@
       caixaTotal.forEach(m => { if(m.tipo === 'REGISTRO_ITENS' && Array.isArray(m.itens)) { m.itens.forEach(i => todosItensParaGrafico.push(i)); } });
 
       todosItensParaGrafico.forEach(i => {
+          if(i.arquivado) return; // IGNORA ARQUIVADOS
+          
           let incluir = false;
           let d = String(i.data || '');
           if (periodo === 'hoje' && d.startsWith(hoje)) { incluir = true; }
@@ -764,60 +803,6 @@
               maintainAspectRatio: false,
               scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
               plugins: { legend: { display: false } }
-          }
-      });
-  }
-
-  function zerarContagemGrafico() {
-      let msg = '';
-      if (periodoGraficoAtual === 'hoje') msg = 'de HOJE';
-      if (periodoGraficoAtual === 'semana') msg = 'dos últimos 7 DIAS';
-      if (periodoGraficoAtual === 'mes') msg = 'deste MÊS';
-
-      Swal.fire({
-          title: `Zerar gráfico ${msg}?`,
-          text: `Isso vai APAGAR do histórico de clientes os itens vendidos ${msg}. Essa ação não tem volta. Tem certeza?`,
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonColor: '#EF5350',
-          confirmButtonText: 'Sim, Limpar Contagem'
-      }).then((result) => {
-          if (result.isConfirmed) {
-              let hoje = obterDataLocal();
-              let filtroDataMes = hoje.slice(0, 7);
-              let batch = db.batch();
-              let count = 0;
-
-              clientes.forEach(c => {
-                  if(!Array.isArray(c.itens)) return;
-                  let itensRestantes = c.itens.filter(i => {
-                      let deletar = false;
-                      let d = String(i.data || '');
-                      if (periodoGraficoAtual === 'hoje' && d.startsWith(hoje)) { deletar = true; }
-                      if (periodoGraficoAtual === 'mes' && d.startsWith(filtroDataMes)) { deletar = true; }
-                      if (periodoGraficoAtual === 'semana' && d) {
-                          let dataMov = d.split('T')[0];
-                          let diff = Math.floor((new Date(hoje) - new Date(dataMov)) / (1000 * 60 * 60 * 24));
-                          if (diff >= 0 && diff <= 7) { deletar = true; }
-                      }
-                      return !deletar;
-                  });
-
-                  if (itensRestantes.length !== c.itens.length) {
-                      let ref = db.collection("clientes").doc(c.id);
-                      batch.update(ref, { itens: itensRestantes });
-                      count++;
-                  }
-              });
-
-              if (count > 0) {
-                  batch.commit().then(() => {
-                      Swal.fire('Zerado!', `Os itens foram limpos.`, 'success');
-                      gerarGraficoProdutos(periodoGraficoAtual);
-                  });
-              } else {
-                  Swal.fire('Aviso', `Não há itens vendidos ${msg} para apagar.`, 'info');
-              }
           }
       });
   }
@@ -1226,6 +1211,7 @@
           }
       });
   }
+
   // ================= FILTRO DE ABAS & LIMPAR MESA =================
   function setFiltroLista(tipo) {
       filtroListaAtual = tipo; 
@@ -1540,12 +1526,14 @@
       clientes.forEach(c => { 
           if(Array.isArray(c.itens)) {
               c.itens.forEach(i => { 
+                  if(i.arquivado) return; // IGNORA ARQUIVADOS
                   let dataItem = normalizarData(i.data);
                   if(dataItem.startsWith(hoje)) tVenda += (i.valor || 0); 
               }); 
           }
       }); 
       caixaTotal.forEach(m => { 
+          if(m.arquivado) return; // IGNORA ARQUIVADOS
           let dataCaixa = normalizarData(m.data);
           if(dataCaixa.startsWith(hoje) && m.tipo === 'ENTRADA') tRecebido += m.valor; 
       }); 
@@ -1562,6 +1550,7 @@
       let filtroData = periodo === 'hoje' ? dataHojeNormalizada : (periodo === 'mes' ? dataHojeNormalizada.slice(0, 7) : "");
       
       let movs = caixaTotal.filter(m => { 
+          if(m.arquivado) return false; // IGNORA ARQUIVADOS
           let dStr = normalizarData(m.data);
           if(!dStr) return false;
           if(periodo === 'semana') { 
@@ -1604,6 +1593,7 @@
       caixaTotal.forEach(m => { if(m.tipo === 'REGISTRO_ITENS' && Array.isArray(m.itens)) { m.itens.forEach(i => todosItensRelatorio.push(i)); } });
 
       todosItensRelatorio.forEach(i => {
+          if(i.arquivado) return; // IGNORA ARQUIVADOS
           let incluir = false;
           let dStr = normalizarData(i.data);
           
@@ -1719,19 +1709,21 @@
       db.collection("caixa").add({ data: obterDataHoraLocal(), valor: v, metodo: 'DINHEIRO', tipo: 'SAIDA', obs: m }).then(() => { document.getElementById('valSangria').value = ''; document.getElementById('obsSangria').value = ''; document.getElementById('areaSangria').style.display = 'none'; Swal.fire({icon:'success', title:'Salvo', timer:1000, showConfirmButton:false}); filtrarRelatorio(document.querySelector('.tab-btn.active').innerText.toLowerCase() === 'hoje' ? 'hoje' : 'mes', document.querySelector('.tab-btn.active')); });
   }
 
-  function zerarRelatorio(periodo) {
+  // ================= NOVO SISTEMA DE FECHAMENTO (ARQUIVAR DADOS) =================
+  function fecharCaixa(periodo) {
       let msg = '';
-      if (periodo === 'hoje') msg = 'o caixa de HOJE';
-      if (periodo === 'semana') msg = 'os últimos 7 DIAS';
-      if (periodo === 'mes') msg = 'o caixa DESTE MÊS';
+      if (periodo === 'hoje') msg = 'HOJE';
+      if (periodo === 'semana') msg = 'dos últimos 7 DIAS';
+      if (periodo === 'mes') msg = 'deste MÊS';
 
       Swal.fire({
-          title: `Zerar ${msg}?`,
-          text: `Isso vai APAGAR DEFINITIVAMENTE todas as entradas e saídas registradas em ${msg}. Tem certeza?`,
-          icon: 'warning',
+          title: `Fechar o Caixa de ${msg}?`,
+          text: `As vendas e gráficos atuais serão removidos da sua tela principal e guardados com segurança nas pastas do Balanço Histórico. Deseja fechar o caixa agora?`,
+          icon: 'question',
           showCancelButton: true,
-          confirmButtonColor: '#EF5350',
-          confirmButtonText: 'Sim, Limpar Tudo'
+          confirmButtonColor: '#AB47BC',
+          confirmButtonText: 'Sim, Fechar Caixa e Arquivar',
+          cancelButtonText: 'Cancelar'
       }).then((result) => {
           if (result.isConfirmed) {
               let hoje = obterDataLocal(); 
@@ -1739,27 +1731,223 @@
               let batch = db.batch(); 
               let count = 0;
               
+              // 1. Arquivar Entradas e Saídas
               caixaTotal.forEach(m => {
-                  let deletar = false;
+                  if (m.arquivado) return; // Se já foi arquivado antes, ignora
+                  let arquivar = false;
                   let dStr = String(m.data || '');
                   
-                  if (periodo === 'hoje' && dStr.startsWith(hoje)) { deletar = true; }
-                  if (periodo === 'mes' && dStr.startsWith(filtroDataMes)) { deletar = true; }
+                  if (periodo === 'hoje' && dStr.startsWith(hoje)) { arquivar = true; }
+                  if (periodo === 'mes' && dStr.startsWith(filtroDataMes)) { arquivar = true; }
                   if (periodo === 'semana' && dStr) {
                       let dataMov = dStr.split('T')[0];
                       let diff = Math.floor((new Date(hoje) - new Date(dataMov)) / (1000 * 60 * 60 * 24)); 
-                      if (diff >= 0 && diff <= 7) { deletar = true; }
+                      if (diff >= 0 && diff <= 7) { arquivar = true; }
                   }
 
-                  if (deletar) { batch.delete(db.collection("caixa").doc(m.id)); count++; }
+                  if (arquivar) { 
+                      batch.update(db.collection("caixa").doc(m.id), { arquivado: true }); 
+                      count++; 
+                  }
+              });
+
+              // 2. Arquivar Produtos Vendidos para limpar o Gráfico (sem deletar do Firebase)
+              clientes.forEach(c => {
+                  if(!Array.isArray(c.itens)) return;
+                  let changed = false;
+                  let novosItens = c.itens.map(i => {
+                      if(i.arquivado) return i;
+                      
+                      let arquivar = false;
+                      let dStr = String(i.data || '');
+                      if (periodo === 'hoje' && dStr.startsWith(hoje)) { arquivar = true; }
+                      if (periodo === 'mes' && dStr.startsWith(filtroDataMes)) { arquivar = true; }
+                      if (periodo === 'semana' && dStr) {
+                          let dataMov = dStr.split('T')[0];
+                          let diff = Math.floor((new Date(hoje) - new Date(dataMov)) / (1000 * 60 * 60 * 24)); 
+                          if (diff >= 0 && diff <= 7) { arquivar = true; }
+                      }
+                      
+                      if(arquivar) {
+                          changed = true;
+                          return { ...i, arquivado: true };
+                      }
+                      return i;
+                  });
+                  
+                  if(changed) {
+                      batch.update(db.collection("clientes").doc(c.id), { itens: novosItens });
+                      count++;
+                  }
               });
               
               if (count > 0) {
                   batch.commit().then(() => {
-                      Swal.fire('Zerado!', `${count} registros financeiros foram apagados.`, 'success');
+                      Swal.fire('Caixa Fechado!', `Os dados da tela foram limpos e arquivados no Balanço Histórico com sucesso.`, 'success');
                       document.getElementById('modalRelatorios').style.display = 'none';
+                      document.getElementById('modalGraficos').style.display = 'none';
+                      atualizarDashboard();
                   });
-              } else { Swal.fire('Aviso', `Não há nada registrado para ${msg} para ser apagado.`, 'info'); }
+              } else { 
+                  Swal.fire('Aviso', `Não há novos dados registrados em ${msg} para serem arquivados.`, 'info'); 
+              }
+          }
+      });
+  }
+
+  // ================= SISTEMA DE BALANÇO GERAL (HISTÓRICO) =================
+  let chartBalancoInstancia = null;
+  let dadosBalancoMemoria = {};
+  const nomesMesesBalanco = {"01":"Janeiro", "02":"Fevereiro", "03":"Março", "04":"Abril", "05":"Maio", "06":"Junho", "07":"Julho", "08":"Agosto", "09":"Setembro", "10":"Outubro", "11":"Novembro", "12":"Dezembro"};
+
+  function abrirBalancoGeral() {
+      document.getElementById('modalBalancoGeral').style.display = 'flex';
+      dadosBalancoMemoria = compilarFinancasGerais();
+      renderBalancoAnos();
+  }
+
+  // 1. Vasculha todo o banco de caixa (inclusive arquivados) e organiza em Pastas (Anos -> Meses -> Dias)
+  function compilarFinancasGerais() {
+      let dados = {}; 
+      caixaTotal.forEach(m => {
+          let dStr = normalizarData(m.data); 
+          if(!dStr || dStr.length < 10) return;
+          
+          let p = dStr.split('-');
+          let ano = p[0], mes = p[1], dia = p[2];
+          
+          // Cria a estrutura se não existir
+          if(!dados[ano]) dados[ano] = { in: 0, out: 0, meses: {} };
+          if(!dados[ano].meses[mes]) dados[ano].meses[mes] = { in: 0, out: 0, dias: {} };
+          if(!dados[ano].meses[mes].dias[dia]) dados[ano].meses[mes].dias[dia] = { in: 0, out: 0 };
+          
+          let v = Number(m.valor) || 0;
+          if(m.tipo === 'ENTRADA') {
+              dados[ano].in += v; dados[ano].meses[mes].in += v; dados[ano].meses[mes].dias[dia].in += v;
+          } else if(m.tipo === 'SAIDA') {
+              dados[ano].out += v; dados[ano].meses[mes].out += v; dados[ano].meses[mes].dias[dia].out += v;
+          }
+      });
+      return dados;
+  }
+
+  function atualizarTopBalanco(inVal, outVal) {
+      document.getElementById('balTotEntrada').innerText = formatarMoeda(inVal);
+      document.getElementById('balTotSaida').innerText = formatarMoeda(outVal);
+      document.getElementById('balTotLiquido').innerText = formatarMoeda(inVal - outVal);
+      document.getElementById('balTotLiquido').style.color = (inVal - outVal) < 0 ? '#EF5350' : '#FFCA28';
+  }
+
+  // 2. Tela de Anos
+  function renderBalancoAnos() {
+      document.getElementById('balancoCaminho').innerHTML = ' > Todos os Anos';
+      let area = document.getElementById('balancoPastas'); area.innerHTML = '';
+      let totalIn = 0, totalOut = 0;
+      let labels = [], dataIn = [], dataOut = [];
+
+      let anos = Object.keys(dadosBalancoMemoria).sort((a,b) => b - a); // Mais recente primeiro
+      
+      if(anos.length === 0) { 
+          area.innerHTML = '<div style="color:#aaa; grid-column: 1/-1; text-align:center; padding: 20px;">Nenhum dado financeiro registrado ainda.</div>'; 
+          atualizarTopBalanco(0,0); atualizarGraficoBalanco([],[],[], ''); return; 
+      }
+
+      anos.forEach(ano => {
+          let d = dadosBalancoMemoria[ano];
+          totalIn += d.in; totalOut += d.out;
+          labels.unshift(ano); dataIn.unshift(d.in); dataOut.unshift(d.out); // Array Inverso para o gráfico ficar da Esquerda p/ Direita
+          
+          area.innerHTML += `
+          <div onclick="renderBalancoMeses('${ano}')" style="background:#3E2723; border:2px solid #AB47BC; border-radius:10px; padding:15px 5px; text-align:center; cursor:pointer; transition:0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+              <div style="font-size:36px;">📁</div>
+              <div style="font-weight:900; color:#fff; font-size:16px; margin:5px 0;">${ano}</div>
+              <div style="font-size:11px; color:#A5D6A7; font-weight:bold;">+ ${formatarMoeda(d.in)}</div>
+              <div style="font-size:11px; color:#EF9A9A; font-weight:bold;">- ${formatarMoeda(d.out)}</div>
+          </div>`;
+      });
+      
+      atualizarTopBalanco(totalIn, totalOut);
+      atualizarGraficoBalanco(labels, dataIn, dataOut, 'Comparativo Anual');
+  }
+
+  // 3. Tela de Meses
+  function renderBalancoMeses(ano) {
+      document.getElementById('balancoCaminho').innerHTML = ` > <span style="cursor:pointer; text-decoration:underline; color:#fff;" onclick="renderBalancoAnos()">Anos</span> > ${ano}`;
+      let area = document.getElementById('balancoPastas'); area.innerHTML = '';
+      let labels = [], dataIn = [], dataOut = [];
+      
+      let dAno = dadosBalancoMemoria[ano];
+      let meses = Object.keys(dAno.meses).sort(); 
+
+      meses.forEach(mes => {
+          let d = dAno.meses[mes];
+          let nomeMes = nomesMesesBalanco[mes] || mes;
+          labels.push(nomeMes.slice(0,3)); dataIn.push(d.in); dataOut.push(d.out);
+          
+          area.innerHTML += `
+          <div onclick="renderBalancoDias('${ano}', '${mes}')" style="background:#3E2723; border:2px solid #29B6F6; border-radius:10px; padding:15px 5px; text-align:center; cursor:pointer; transition:0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+              <div style="font-size:36px;">📂</div>
+              <div style="font-weight:900; color:#fff; font-size:14px; text-transform:uppercase; margin:5px 0;">${nomeMes}</div>
+              <div style="font-size:11px; color:#A5D6A7; font-weight:bold;">+ ${formatarMoeda(d.in)}</div>
+              <div style="font-size:11px; color:#EF9A9A; font-weight:bold;">- ${formatarMoeda(d.out)}</div>
+          </div>`;
+      });
+      
+      atualizarTopBalanco(dAno.in, dAno.out);
+      atualizarGraficoBalanco(labels, dataIn, dataOut, `Meses de ${ano}`);
+  }
+
+  // 4. Tela de Dias
+  function renderBalancoDias(ano, mes) {
+      let nomeMes = nomesMesesBalanco[mes] || mes;
+      document.getElementById('balancoCaminho').innerHTML = ` > <span style="cursor:pointer; text-decoration:underline; color:#fff;" onclick="renderBalancoAnos()">Anos</span> > <span style="cursor:pointer; text-decoration:underline; color:#fff;" onclick="renderBalancoMeses('${ano}')">${ano}</span> > ${nomeMes}`;
+      let area = document.getElementById('balancoPastas'); area.innerHTML = '';
+      let labels = [], dataIn = [], dataOut = [];
+      
+      let dMes = dadosBalancoMemoria[ano].meses[mes];
+      let dias = Object.keys(dMes.dias).sort();
+
+      dias.forEach(dia => {
+          let d = dMes.dias[dia];
+          labels.push(`Dia ${dia}`); dataIn.push(d.in); dataOut.push(d.out);
+          
+          area.innerHTML += `
+          <div style="background:#2D1B15; border:1px dashed #FFCA28; border-radius:10px; padding:10px 5px; text-align:center;">
+              <div style="font-size:24px;">📄</div>
+              <div style="font-weight:900; color:#fff; font-size:14px; margin:5px 0;">Dia ${dia}</div>
+              <div style="font-size:10px; color:#A5D6A7;">+ ${formatarMoeda(d.in)}</div>
+              <div style="font-size:10px; color:#EF9A9A;">- ${formatarMoeda(d.out)}</div>
+          </div>`;
+      });
+
+      atualizarTopBalanco(dMes.in, dMes.out);
+      atualizarGraficoBalanco(labels, dataIn, dataOut, `Dias de ${nomeMes}/${ano}`);
+  }
+
+  // 5. Atualiza o Gráfico Visual
+  function atualizarGraficoBalanco(labels, entradas, saidas, titulo) {
+      let ctx = document.getElementById('graficoBalancoGeral').getContext('2d');
+      if (chartBalancoInstancia) { chartBalancoInstancia.destroy(); }
+
+      chartBalancoInstancia = new Chart(ctx, {
+          type: 'bar',
+          data: {
+              labels: labels,
+              datasets: [
+                  { label: 'Entradas (R$)', data: entradas, backgroundColor: '#66BB6A', borderRadius: 4 },
+                  { label: 'Saídas (R$)', data: saidas, backgroundColor: '#EF5350', borderRadius: 4 }
+              ]
+          },
+          options: {
+              responsive: true, maintainAspectRatio: false,
+              plugins: {
+                  title: { display: true, text: titulo, color: '#333', font: {size: 16} },
+                  legend: { position: 'bottom', labels: { color: '#333', font: {weight: 'bold'} } }
+              },
+              scales: { 
+                  y: { beginAtZero: true, ticks: { color: '#333' } },
+                  x: { ticks: { color: '#333', font: {weight: 'bold'} } }
+              }
           }
       });
   }
