@@ -30,6 +30,9 @@
   .titulo-loja { font-family: 'Pacifico', cursive; font-size: 28px; margin: 10px 0 0 0; position: relative; z-index: 1; color: var(--accent); }
   .desc-loja { font-size: 12px; color: #ccc; margin: 5px 0 0 0; position: relative; z-index: 1; }
 
+  /* AVISO FECHADO */
+  #avisoFechado { display: none; background: var(--danger); color: #fff; text-align: center; padding: 15px; font-weight: 800; font-size: 16px; margin: 0; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+
   .container { max-width: 600px; margin: 0 auto; padding: 15px; }
 
   /* PRODUTOS */
@@ -92,6 +95,8 @@
     <h1 id="nomeLoja" class="titulo-loja">Carregando...</h1>
     <p id="descLoja" class="desc-loja">Faça seu pedido online de forma rápida!</p>
 </div>
+
+<div id="avisoFechado">🔴 DELIVERY FECHADO NO MOMENTO</div>
 
 <div class="container">
     <h3 style="color: #3E2723; margin-top: 5px; text-align:center; font-size: 22px; font-weight:900;">Nosso Cardápio</h3>
@@ -252,6 +257,7 @@
   let numPedidoAtual = 1;
   let foneLoja = "";
   let taxaEntregaLoja = 0; 
+  window.lojaAberta = true; // Variável para controlar o status
 
   $(document).ready(function(){
       $('#cliZap').mask('(00) 00000-0000');
@@ -259,7 +265,7 @@
       $('#cliCep').mask('00000-000');
   });
 
-  // ================= INICIALIZAÇÃO =================
+  // ================= INICIALIZAÇÃO E STATUS DA LOJA =================
   function carregarDadosLoja() {
       db.collection("config").doc("empresa").onSnapshot((doc) => {
           if(doc.exists) {
@@ -279,6 +285,18 @@
               if(d.contador !== undefined) numPedidoAtual = d.contador + 1;
               
               taxaEntregaLoja = d.taxaEntrega ? Number(d.taxaEntrega) : 0;
+
+              // VERIFICA SE A LOJA ESTÁ ABERTA OU FECHADA
+              let statusBD = d.statusLoja || 'aberto';
+              if(statusBD === 'fechado') {
+                  window.lojaAberta = false;
+                  document.getElementById('avisoFechado').style.display = 'block';
+                  document.getElementById('carrinhoFloat').style.display = 'none'; // Esconde carrinho
+              } else {
+                  window.lojaAberta = true;
+                  document.getElementById('avisoFechado').style.display = 'none';
+                  atualizarCarrinhoFlutuante(); // Mostra carrinho se tiver item
+              }
               
               if (document.getElementById('modalCheckout').style.display === 'flex') {
                   renderizarItensCheckout();
@@ -363,6 +381,11 @@
 
   // ================= ADICIONAR AO CARRINHO =================
   function modalAddProduto(id) {
+      // Bloqueia adição se a loja estiver fechada
+      if(!window.lojaAberta) {
+          return Swal.fire('Poxa...', 'O delivery está fechado no momento. Volte em breve!', 'info');
+      }
+
       let p = catalogoLoja.find(x => x.id === id);
       
       Swal.fire({
@@ -403,7 +426,7 @@
                   qtd: result.value.qtd,
                   ingredientes: p.ingredientes,
                   obsCliente: result.value.obs,
-                  data: new Date().toISOString().split('T')[0],
+                  data: new Date().toISOString().split('T'),
                   tipo: 'online', 
                   pago: false,
                   pagoValor: 0,
@@ -419,7 +442,9 @@
 
   function atualizarCarrinhoFlutuante() {
       let barra = document.getElementById('carrinhoFloat');
-      if(carrinho.length === 0) {
+      
+      // Impede de mostrar o carrinho se a loja estiver fechada
+      if(carrinho.length === 0 || !window.lojaAberta) {
           barra.style.display = 'none';
           return;
       }
@@ -608,7 +633,7 @@
                   desc: "🛵 TAXA DE ENTREGA",
                   qtd: 1,
                   valor: taxaEntregaLoja,
-                  data: new Date().toISOString().split('T')[0],
+                  data: new Date().toISOString().split('T'),
                   tipo: 'online',
                   ingredientes: '',
                   numPedido: numero,
