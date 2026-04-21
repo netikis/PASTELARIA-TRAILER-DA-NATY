@@ -283,14 +283,14 @@
                       <option value="PASTÉIS DOCES">Pastéis Doces</option>
                       <option value="BEBIDAS">Bebidas</option>
                       <option value="PORÇÕES">Porções</option>
-                      <option value="ADICIONAL EXTRA">Adicional Extra</option>
+                      <option value="ADICIONAIS EXTRAS">Adicional Extras</option>
                   </select>
                   
                   <input type="text" id="catNome" placeholder="Nome (Ex: Pastel Carne)" style="width:100%; margin-bottom:10px;">
                   <input type="number" id="catValor" placeholder="Preço R$" style="width:100%; margin-bottom:10px;">
                   
                   <div style="background:#3E2723; padding:10px; border-radius:8px; margin-bottom:15px;">
-                      <label style="font-size:11px; color:#aaa;">Ingredientes Extras (opcional):</label>
+                      <label style="font-size:11px; color:#aaa;">ADICIONAIS EXTRAS (opcional):</label>
                       <div style="display:flex; gap:5px; margin-top:5px;">
                           <input type="text" id="novoIngrediente" placeholder="Ex: Carne, Ovo..." style="margin-bottom:0;">
                           <button type="button" class="dark" onclick="addIngredienteTemp()" style="width:50px; font-size:18px; padding:0;">+</button>
@@ -1064,7 +1064,7 @@
           html += `
           <div style="display:flex; justify-content:space-between; background:#222; padding:10px; margin-bottom:8px; border-radius:8px; border:1px solid #444; align-items:center;">
               <div>
-                  <div style="font-weight:bold; font-size:14px; color:#fff;">${p.nome} <span style="font-size:10px; color:#FFCA28; background:#3E2723; padding:2px 5px; border-radius:4px;">${p.categoria || 'ADICIONAL EXTRA'}</span></div>
+                  <div style="font-weight:bold; font-size:14px; color:#fff;">${p.nome} <span style="font-size:10px; color:#FFCA28; background:#3E2723; padding:2px 5px; border-radius:4px;">${p.categoria || 'ADICIONAIS EXTRAS'}</span></div>
                   <div style="font-size:10px; color:#aaa;">${p.ingredientes || 'Sem ingredientes adicionais'}</div>
                   <div style="color:#66BB6A; font-weight:bold; font-size:12px; margin-top:3px;">${formatarMoeda(p.valor)}</div>
               </div>
@@ -1080,7 +1080,7 @@
   function editarProduto(id) {
       let p = catalogo.find(x => x.id === id); if(!p) return;
       
-      let catAtual = p.categoria || 'ADICIONAL EXTRA';
+      let catAtual = p.categoria || 'ADICIONAIS EXTRAS';
       
       Swal.fire({
           title: 'Editar Produto',
@@ -1091,7 +1091,7 @@
                      <option value="PASTÉIS DOCES" ${catAtual === 'PASTÉIS DOCES' ? 'selected' : ''}>Pastéis Doces</option>
                      <option value="BEBIDAS" ${catAtual === 'BEBIDAS' ? 'selected' : ''}>Bebidas</option>
                      <option value="PORÇÕES" ${catAtual === 'PORÇÕES' ? 'selected' : ''}>Porções</option>
-                     <option value="ADICIONAL EXTRA" ${catAtual === 'ADICIONAL EXTRA' ? 'selected' : ''}>Adicional extra</option>
+                     <option value="ADICIONAIS EXTRAS" ${catAtual === 'ADICIONAIS EXTRAS' ? 'selected' : ''}>Adicionais extras</option>
                  </select>
 
                  <input id="editProdValor" type="number" step="0.01" class="swal2-input" placeholder="Preço" value="${p.valor}" style="margin-bottom:10px; width:80%;">
@@ -1486,7 +1486,7 @@
   }
 
   function renderAbasCategoriasModal() {
-      let categorias = ['TODAS', 'PASTÉIS SALGADOS', 'PASTÉIS DOCES', 'BEBIDAS', 'PORÇÕES', 'ADICIONAL EXTRA'];
+      let categorias = ['TODAS', 'PASTÉIS SALGADOS', 'PASTÉIS DOCES', 'BEBIDAS', 'PORÇÕES', 'ADICIONAIS EXTRAS'];
       let html = categorias.map(c => `<button class="tab-lista ${categoriaFiltroModal === c ? 'active' : ''}" style="white-space:nowrap; padding:8px 12px; font-size:11px;" onclick="categoriaFiltroModal='${c}'; renderAbasCategoriasModal(); renderProdutosModal();">${c}</button>`).join('');
       document.getElementById('abasCategoriasModal').innerHTML = html;
   }
