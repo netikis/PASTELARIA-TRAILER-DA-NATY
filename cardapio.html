@@ -253,11 +253,12 @@
   const db = firebase.firestore();
 
   let catalogoLoja = [];
+  let listaAdicionaisDB = []; 
   let carrinho = [];
   let numPedidoAtual = 1;
   let foneLoja = "";
   let taxaEntregaLoja = 0; 
-  window.lojaAberta = true; // Variável para controlar o status
+  window.lojaAberta = true; 
 
   $(document).ready(function(){
       $('#cliZap').mask('(00) 00000-0000');
@@ -286,16 +287,15 @@
               
               taxaEntregaLoja = d.taxaEntrega ? Number(d.taxaEntrega) : 0;
 
-              // VERIFICA SE A LOJA ESTÁ ABERTA OU FECHADA
               let statusBD = d.statusLoja || 'aberto';
               if(statusBD === 'fechado') {
                   window.lojaAberta = false;
                   document.getElementById('avisoFechado').style.display = 'block';
-                  document.getElementById('carrinhoFloat').style.display = 'none'; // Esconde carrinho
+                  document.getElementById('carrinhoFloat').style.display = 'none'; 
               } else {
                   window.lojaAberta = true;
                   document.getElementById('avisoFechado').style.display = 'none';
-                  atualizarCarrinhoFlutuante(); // Mostra carrinho se tiver item
+                  atualizarCarrinhoFlutuante(); 
               }
               
               if (document.getElementById('modalCheckout').style.display === 'flex') {
@@ -304,14 +304,26 @@
           }
       });
 
+      // BUSCA O CARDÁPIO E SEPARA OS ADICIONAIS
       db.collection("catalogo").orderBy("nome").onSnapshot((snap) => {
           catalogoLoja = [];
-          snap.forEach(d => catalogoLoja.push({id: d.id, ...d.data()}));
+          listaAdicionaisDB = []; 
+          snap.forEach(d => {
+              let item = {id: d.id, ...d.data()};
+              
+              // Verificação flexível: reconhece "Adicional", "Adicionais", "Extra", etc.
+              let nomeCategoria = (item.categoria || "").toUpperCase();
+              if (nomeCategoria.includes('ADICIONA') || nomeCategoria.includes('EXTRA')) {
+                  listaAdicionaisDB.push(item);
+              } else {
+                  catalogoLoja.push(item);
+              }
+          });
           renderizarProdutos();
       });
-  }
+  } // <--- AQUI ESTAVA FALTANDO A CHAVE!
 
-  // ================= RENDERIZAR CARDÁPIO SEPARADO POR CATEGORIAS LIDO DO BANCO =================
+  // ================= RENDERIZAR CARDÁPIO =================
   function renderizarProdutos() {
       document.getElementById('loadingCatalogo').style.display = 'none';
 
@@ -379,27 +391,52 @@
       document.getElementById('secaoOutros').style.display = countOutros > 0 ? 'block' : 'none';
   }
 
-  // ================= ADICIONAR AO CARRINHO =================
+  // ================= ADICIONAR AO CARRINHO (COM ADICIONAIS DINÂMICOS) =================
   function modalAddProduto(id) {
-      // Bloqueia adição se a loja estiver fechada
       if(!window.lojaAberta) {
           return Swal.fire('Poxa...', 'O delivery está fechado no momento. Volte em breve!', 'info');
       }
 
       let p = catalogoLoja.find(x => x.id === id);
       
+      // Gera o HTML dos adicionais lendo do Firebase
+      let adicionaisHtml = '';
+      if(listaAdicionaisDB.length > 0) {
+          adicionaisHtml = `
+              <div style="text-align:left; margin-bottom:15px;">
+                  <strong style="font-size:14px; color:#3E2723;">Deseja algum adicional?</strong>
+                  <div style="max-height:130px; overflow-y:auto; border:1px solid #ddd; padding:8px; border-radius:8px; background:#fafafa; margin-top:5px;">
+          `;
+          listaAdicionaisDB.forEach(ad => {
+              let precoAd = Number(ad.valor) || 0;
+              adicionaisHtml += `
+                  <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px; cursor:pointer; border-bottom:1px dashed #eee; padding-bottom:5px;">
+                      <span>
+                          <input type="checkbox" class="addon-checkbox" value="${precoAd}" data-nome="${ad.nome}" style="margin-right:8px; accent-color:#D88D98;">
+                          ${ad.nome}
+                      </span>
+                      <span style="color:#4CAF50; font-weight:bold;">+ ${formatarMoeda(precoAd)}</span>
+                  </label>
+              `;
+          });
+          adicionaisHtml += `</div></div>`;
+      }
+      
       Swal.fire({
           title: p.nome,
           html: `
               <div style="text-align:left; font-size:13px; color:#555; margin-bottom:15px; font-style:italic;">${p.ingredientes || ''}</div>
-              <div style="text-align:left; font-weight:bold; font-size:20px; color:#4CAF50; margin-bottom:15px;">${formatarMoeda(p.valor)}</div>
+              
+              ${adicionaisHtml}
+
+              <div style="text-align:left; font-weight:bold; font-size:20px; color:#4CAF50; margin-bottom:15px;" id="precoModalDisplay">${formatarMoeda(p.valor)}</div>
               
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; background:#f5f5f5; padding:10px; border-radius:8px;">
                   <span style="font-weight:bold; color:#333;">Quantidade:</span>
                   <div style="display:flex; align-items:center; gap:10px;">
-                      <button onclick="document.getElementById('qtdModal').value = Math.max(1, parseInt(document.getElementById('qtdModal').value)-1)" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold;">-</button>
+                      <button id="btnMenosModal" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold; cursor:pointer;">-</button>
                       <input type="number" id="qtdModal" value="1" min="1" readonly style="width:40px; text-align:center; border:none; background:transparent; font-weight:bold; font-size:16px; padding:0;">
-                      <button onclick="document.getElementById('qtdModal').value = parseInt(document.getElementById('qtdModal').value)+1" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold;">+</button>
+                      <button id="btnMaisModal" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold; cursor:pointer;">+</button>
                   </div>
               </div>
               
@@ -410,22 +447,65 @@
           cancelButtonColor: '#aaa',
           confirmButtonText: 'Adicionar ao Pedido',
           cancelButtonText: 'Cancelar',
+          didOpen: () => {
+              const qtdInput = document.getElementById('qtdModal');
+              const precoDisplay = document.getElementById('precoModalDisplay');
+              const checkboxes = document.querySelectorAll('.addon-checkbox');
+              
+              function atualizarPrecoAoVivo() {
+                  let addonsTotal = 0;
+                  document.querySelectorAll('.addon-checkbox:checked').forEach(cb => {
+                      addonsTotal += parseFloat(cb.value);
+                  });
+                  let qtdAtual = parseInt(qtdInput.value);
+                  let precoCalculado = (p.valor + addonsTotal) * qtdAtual;
+                  precoDisplay.innerText = formatarMoeda(precoCalculado);
+              }
+
+              checkboxes.forEach(cb => cb.addEventListener('change', atualizarPrecoAoVivo));
+
+              document.getElementById('btnMenosModal').onclick = () => {
+                  qtdInput.value = Math.max(1, parseInt(qtdInput.value) - 1);
+                  atualizarPrecoAoVivo();
+              };
+              document.getElementById('btnMaisModal').onclick = () => {
+                  qtdInput.value = parseInt(qtdInput.value) + 1;
+                  atualizarPrecoAoVivo();
+              };
+          },
           preConfirm: () => {
+              let selectedAddons = [];
+              let addonsTotal = 0;
+              document.querySelectorAll('.addon-checkbox:checked').forEach(cb => {
+                  selectedAddons.push(cb.getAttribute('data-nome'));
+                  addonsTotal += parseFloat(cb.value);
+              });
+
               return {
                   qtd: parseInt(document.getElementById('qtdModal').value),
-                  obs: document.getElementById('obsModal').value
+                  obs: document.getElementById('obsModal').value,
+                  addonsNomes: selectedAddons.join(', '),
+                  addonsTotal: addonsTotal
               }
           }
       }).then((result) => {
           if(result.isConfirmed) {
+              let dados = result.value;
+              let valorUnitarioNovo = p.valor + dados.addonsTotal;
+              let descFinal = p.nome;
+              
+              if (dados.addonsNomes) {
+                  descFinal += ` (+ ${dados.addonsNomes})`;
+              }
+
               carrinho.push({
                   idProduto: p.id,
-                  desc: p.nome,
-                  valorUnitario: p.valor,
-                  valor: p.valor * result.value.qtd,
-                  qtd: result.value.qtd,
+                  desc: descFinal,
+                  valorUnitario: valorUnitarioNovo,
+                  valor: valorUnitarioNovo * dados.qtd,
+                  qtd: dados.qtd,
                   ingredientes: p.ingredientes,
-                  obsCliente: result.value.obs,
+                  obsCliente: dados.obs,
                   data: new Date().toISOString().split('T'),
                   tipo: 'online', 
                   pago: false,
@@ -443,7 +523,6 @@
   function atualizarCarrinhoFlutuante() {
       let barra = document.getElementById('carrinhoFloat');
       
-      // Impede de mostrar o carrinho se a loja estiver fechada
       if(carrinho.length === 0 || !window.lojaAberta) {
           barra.style.display = 'none';
           return;
@@ -459,15 +538,12 @@
 
   function gerarPixDinamico(valor) {
       let payload = "00020126580014br.gov.bcb.pix013698cf0042-4bb7-4c0a-89c3-99c180fb20ab27600016BR.COM.PAGSEGURO0136EB1DD9C1-0DBC-4E1F-9AA2-10B360792EE2520489995303986";
-      
       if (valor > 0) {
           let valorStr = valor.toFixed(2);
           let tamValor = valorStr.length.toString().padStart(2, '0');
           payload += "54" + tamValor + valorStr;
       }
-      
       payload += "5802BR5925NATHALIA PASCHOAL DA SILV6006IBAITI62290525PAGS0000000002603122142946304";
-      
       let polinomio = 0x1021;
       let resultado = 0xFFFF;
       for (let i = 0; i < payload.length; i++) {
@@ -490,7 +566,6 @@
       document.getElementById('modalCheckout').style.display = 'none';
   }
 
-  // RECALCULA O CARRINHO E APLICA TAXA SE FOR DELIVERY
   function renderizarItensCheckout() {
       let div = document.getElementById('listaItensCheckout');
       div.innerHTML = '';
@@ -513,7 +588,6 @@
           `;
       });
       
-      // Adiciona a Taxa Visualmente se for Delivery
       if (isDelivery && taxaEntregaLoja > 0) {
           total += taxaEntregaLoja;
           div.innerHTML += `
@@ -545,10 +619,8 @@
       atualizarCarrinhoFlutuante();
   }
 
-  // Atualiza as opções de entrega e refaz os cálculos
   function mudarModoEntrega() {
       let isDelivery = document.getElementById('modoDelivery').checked;
-      
       if(isDelivery) {
           document.getElementById('areaDelivery').style.display = 'block';
           document.getElementById('areaMesa').style.display = 'none';
@@ -558,8 +630,6 @@
           document.getElementById('areaMesa').style.display = 'block';
           document.getElementById('tituloEntregaForm').innerText = 'Retirada / Mesa';
       }
-      
-      // Atualiza o carrinho para mostrar ou esconder a taxa
       renderizarItensCheckout();
   }
   
@@ -582,7 +652,6 @@
 
       let isDelivery = document.getElementById('modoDelivery').checked;
       let dadosCliente = { itens: [], tipoCadastro: isDelivery ? 'delivery' : 'mesa' };
-      
       let endCompletoStr = "";
 
       if(!isDelivery) {
@@ -620,7 +689,6 @@
           let itensFinais = carrinho.map(i => {
               let ingredFinais = i.ingredientes || '';
               if(i.obsCliente) ingredFinais += ` | OBS: *${i.obsCliente}*`;
-              
               return {
                   desc: i.desc, qtd: i.qtd, valor: i.valor, data: i.data, tipo: i.tipo,
                   ingredientes: ingredFinais, numPedido: numero, pago: false, pagoValor: 0, 
@@ -630,17 +698,9 @@
           
           if (isDelivery && taxaEntregaLoja > 0) {
               itensFinais.push({
-                  desc: "🛵 TAXA DE ENTREGA",
-                  qtd: 1,
-                  valor: taxaEntregaLoja,
-                  data: new Date().toISOString().split('T'),
-                  tipo: 'online',
-                  ingredientes: '',
-                  numPedido: numero,
-                  pago: false,
-                  pagoValor: 0,
-                  pronto: true,
-                  notificadoAdmin: true
+                  desc: "🛵 TAXA DE ENTREGA", qtd: 1, valor: taxaEntregaLoja, data: new Date().toISOString().split('T'),
+                  tipo: 'online', ingredientes: '', numPedido: numero, pago: false, pagoValor: 0,
+                  pronto: true, notificadoAdmin: true
               });
           }
           
@@ -650,32 +710,23 @@
           
           db.collection("clientes").add(dadosCliente).then(() => {
               db.collection("config").doc("empresa").update({"contador": numero});
-              
               carrinho = [];
               atualizarCarrinhoFlutuante();
               fecharCheckout();
               
               Swal.fire({
-                  title: 'Pedido Recebido! 🎉',
-                  text: 'Sua comanda já está na nossa cozinha.',
-                  icon: 'success',
-                  showCancelButton: true,
-                  confirmButtonColor: '#4CAF50',
-                  cancelButtonColor: '#888',
-                  confirmButtonText: 'Avisar no WhatsApp',
-                  cancelButtonText: 'Fechar'
+                  title: 'Pedido Recebido! 🎉', text: 'Sua comanda já está na nossa cozinha.',
+                  icon: 'success', showCancelButton: true, confirmButtonColor: '#4CAF50',
+                  cancelButtonColor: '#888', confirmButtonText: 'Avisar no WhatsApp', cancelButtonText: 'Fechar'
               }).then((result) => {
                   if (result.isConfirmed && foneLoja) {
                       let textoZap = `*NOVO PEDIDO (ONLINE)* 🍔\n\n*Cliente:* ${dadosCliente.nome}\n*Modo:* ${isDelivery ? 'Delivery 🛵' : 'Mesa/Local 🪑'}\n*Endereço:* ${endCompletoStr}\n*Pagamento:* ${infoPagamento}\n\n*Itens:*`;
-                      
                       let valorTotalZap = 0;
                       itensFinais.forEach(i => {
                           valorTotalZap += i.valor;
                           textoZap += `\n- ${i.qtd}x ${i.desc} (R$ ${i.valor.toFixed(2)})`;
                       });
-                      
                       textoZap += `\n\n*Total a pagar:* R$ ${valorTotalZap.toFixed(2)}`;
-                      
                       let url = `https://wa.me/55${foneLoja}?text=${encodeURIComponent(textoZap)}`;
                       window.open(url, '_blank');
                   }
