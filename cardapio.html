@@ -10,6 +10,7 @@
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+<script src="./firebase-env.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
@@ -240,14 +241,10 @@
 
 <script>
   // ================= CONFIGURAÇÃO FIREBASE =================
-  const firebaseConfig = {
-    apiKey: "AIzaSyCzVRXFXsD1dAgy4cyvSF0qjZwb2sVdB_E",
-    authDomain: "sistema-de-pastelaria.firebaseapp.com",
-    projectId: "sistema-de-pastelaria",
-    storageBucket: "sistema-de-pastelaria.firebasestorage.app",
-    messagingSenderId: "857527247447",
-    appId: "1:857527247447:web:7b055dd4f3bdabc5f17912"
-  };
+  const firebaseConfig = window.FIREBASE_CONFIG;
+  if (!firebaseConfig) {
+      throw new Error("FIREBASE_CONFIG não encontrado. Configure o arquivo firebase-env.js.");
+  }
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
