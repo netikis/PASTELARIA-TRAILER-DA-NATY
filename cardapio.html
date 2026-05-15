@@ -10,7 +10,6 @@
 
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-<script src="./firebase-env.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.16/jquery.mask.min.js"></script>
@@ -30,9 +29,6 @@
   .logo-loja { width: 90px; height: 90px; border-radius: 50%; border: 3px solid #fff; object-fit: cover; position: relative; z-index: 1; background: #fff; }
   .titulo-loja { font-family: 'Pacifico', cursive; font-size: 28px; margin: 10px 0 0 0; position: relative; z-index: 1; color: var(--accent); }
   .desc-loja { font-size: 12px; color: #ccc; margin: 5px 0 0 0; position: relative; z-index: 1; }
-
-  /* AVISO FECHADO */
-  #avisoFechado { display: none; background: var(--danger); color: #fff; text-align: center; padding: 15px; font-weight: 800; font-size: 16px; margin: 0; text-transform: uppercase; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
 
   .container { max-width: 600px; margin: 0 auto; padding: 15px; }
 
@@ -96,8 +92,6 @@
     <h1 id="nomeLoja" class="titulo-loja">Carregando...</h1>
     <p id="descLoja" class="desc-loja">Faça seu pedido online de forma rápida!</p>
 </div>
-
-<div id="avisoFechado">🔴 DELIVERY FECHADO NO MOMENTO</div>
 
 <div class="container">
     <h3 style="color: #3E2723; margin-top: 5px; text-align:center; font-size: 22px; font-weight:900;">Nosso Cardápio</h3>
@@ -241,21 +235,25 @@
 
 <script>
   // ================= CONFIGURAÇÃO FIREBASE =================
-  const firebaseConfig = window.FIREBASE_CONFIG;
-  if (!firebaseConfig) {
-      throw new Error("FIREBASE_CONFIG não encontrado. Configure o arquivo firebase-env.js.");
-  }
+  const firebaseConfig = {
+    apiKey: "AIzaSyCzVRXFXsD1dAgy4cyvSF0qjZwb2sVdB_E",
+    authDomain: "sistema-de-pastelaria.firebaseapp.com",
+    projectId: "sistema-de-pastelaria",
+    storageBucket: "sistema-de-pastelaria.firebasestorage.app",
+    messagingSenderId: "857527247447",
+    appId: "1:857527247447:web:7b055dd4f3bdabc5f17912"
+  };
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
 
   let catalogoLoja = [];
-  let listaAdicionaisDB = []; 
   let carrinho = [];
   let numPedidoAtual = 1;
   let foneLoja = "";
-  let taxaEntregaLoja = 0; 
-  window.lojaAberta = true; 
+  let taxaEntregaLoja = 0;
+  let pixCopiaColaLoja = "";
+  let qrCodeLoja = "";
 
   $(document).ready(function(){
       $('#cliZap').mask('(00) 00000-0000');
@@ -263,7 +261,7 @@
       $('#cliCep').mask('00000-000');
   });
 
-  // ================= INICIALIZAÇÃO E STATUS DA LOJA =================
+  // ================= INICIALIZAÇÃO =================
   function carregarDadosLoja() {
       db.collection("config").doc("empresa").onSnapshot((doc) => {
           if(doc.exists) {
@@ -275,25 +273,13 @@
                   document.getElementById('logoLoja').src = d.logo;
                   document.body.style.setProperty('--bg-logo', `url(${d.logo})`);
               }
-              if(d.qrCode) {
-                  document.getElementById('imgPixQrApp').src = d.qrCode;
-                  document.getElementById('imgPixQrApp').style.display = 'block';
-              }
+              pixCopiaColaLoja = (d.pixCopiaCola || '').trim();
+              qrCodeLoja = d.qrCode || '';
+              aplicarPixCardapio();
               if(d.tel) foneLoja = d.tel.replace(/\D/g, ''); 
               if(d.contador !== undefined) numPedidoAtual = d.contador + 1;
               
               taxaEntregaLoja = d.taxaEntrega ? Number(d.taxaEntrega) : 0;
-
-              let statusBD = d.statusLoja || 'aberto';
-              if(statusBD === 'fechado') {
-                  window.lojaAberta = false;
-                  document.getElementById('avisoFechado').style.display = 'block';
-                  document.getElementById('carrinhoFloat').style.display = 'none'; 
-              } else {
-                  window.lojaAberta = true;
-                  document.getElementById('avisoFechado').style.display = 'none';
-                  atualizarCarrinhoFlutuante(); 
-              }
               
               if (document.getElementById('modalCheckout').style.display === 'flex') {
                   renderizarItensCheckout();
@@ -301,26 +287,14 @@
           }
       });
 
-      // BUSCA O CARDÁPIO E SEPARA OS ADICIONAIS
       db.collection("catalogo").orderBy("nome").onSnapshot((snap) => {
           catalogoLoja = [];
-          listaAdicionaisDB = []; 
-          snap.forEach(d => {
-              let item = {id: d.id, ...d.data()};
-              
-              // Verificação flexível: reconhece "Adicional", "Adicionais", "Extra", etc.
-              let nomeCategoria = (item.categoria || "").toUpperCase();
-              if (nomeCategoria.includes('ADICIONA') || nomeCategoria.includes('EXTRA')) {
-                  listaAdicionaisDB.push(item);
-              } else {
-                  catalogoLoja.push(item);
-              }
-          });
+          snap.forEach(d => catalogoLoja.push({id: d.id, ...d.data()}));
           renderizarProdutos();
       });
-  } // <--- AQUI ESTAVA FALTANDO A CHAVE!
+  }
 
-  // ================= RENDERIZAR CARDÁPIO =================
+  // ================= RENDERIZAR CARDÁPIO SEPARADO POR CATEGORIAS LIDO DO BANCO =================
   function renderizarProdutos() {
       document.getElementById('loadingCatalogo').style.display = 'none';
 
@@ -388,52 +362,22 @@
       document.getElementById('secaoOutros').style.display = countOutros > 0 ? 'block' : 'none';
   }
 
-  // ================= ADICIONAR AO CARRINHO (COM ADICIONAIS DINÂMICOS) =================
+  // ================= ADICIONAR AO CARRINHO =================
   function modalAddProduto(id) {
-      if(!window.lojaAberta) {
-          return Swal.fire('Poxa...', 'O delivery está fechado no momento. Volte em breve!', 'info');
-      }
-
       let p = catalogoLoja.find(x => x.id === id);
-      
-      // Gera o HTML dos adicionais lendo do Firebase
-      let adicionaisHtml = '';
-      if(listaAdicionaisDB.length > 0) {
-          adicionaisHtml = `
-              <div style="text-align:left; margin-bottom:15px;">
-                  <strong style="font-size:14px; color:#3E2723;">Deseja algum adicional?</strong>
-                  <div style="max-height:130px; overflow-y:auto; border:1px solid #ddd; padding:8px; border-radius:8px; background:#fafafa; margin-top:5px;">
-          `;
-          listaAdicionaisDB.forEach(ad => {
-              let precoAd = Number(ad.valor) || 0;
-              adicionaisHtml += `
-                  <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:13px; cursor:pointer; border-bottom:1px dashed #eee; padding-bottom:5px;">
-                      <span>
-                          <input type="checkbox" class="addon-checkbox" value="${precoAd}" data-nome="${ad.nome}" style="margin-right:8px; accent-color:#D88D98;">
-                          ${ad.nome}
-                      </span>
-                      <span style="color:#4CAF50; font-weight:bold;">+ ${formatarMoeda(precoAd)}</span>
-                  </label>
-              `;
-          });
-          adicionaisHtml += `</div></div>`;
-      }
       
       Swal.fire({
           title: p.nome,
           html: `
               <div style="text-align:left; font-size:13px; color:#555; margin-bottom:15px; font-style:italic;">${p.ingredientes || ''}</div>
-              
-              ${adicionaisHtml}
-
-              <div style="text-align:left; font-weight:bold; font-size:20px; color:#4CAF50; margin-bottom:15px;" id="precoModalDisplay">${formatarMoeda(p.valor)}</div>
+              <div style="text-align:left; font-weight:bold; font-size:20px; color:#4CAF50; margin-bottom:15px;">${formatarMoeda(p.valor)}</div>
               
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; background:#f5f5f5; padding:10px; border-radius:8px;">
                   <span style="font-weight:bold; color:#333;">Quantidade:</span>
                   <div style="display:flex; align-items:center; gap:10px;">
-                      <button id="btnMenosModal" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold; cursor:pointer;">-</button>
+                      <button onclick="document.getElementById('qtdModal').value = Math.max(1, parseInt(document.getElementById('qtdModal').value)-1)" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold;">-</button>
                       <input type="number" id="qtdModal" value="1" min="1" readonly style="width:40px; text-align:center; border:none; background:transparent; font-weight:bold; font-size:16px; padding:0;">
-                      <button id="btnMaisModal" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold; cursor:pointer;">+</button>
+                      <button onclick="document.getElementById('qtdModal').value = parseInt(document.getElementById('qtdModal').value)+1" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold;">+</button>
                   </div>
               </div>
               
@@ -444,66 +388,23 @@
           cancelButtonColor: '#aaa',
           confirmButtonText: 'Adicionar ao Pedido',
           cancelButtonText: 'Cancelar',
-          didOpen: () => {
-              const qtdInput = document.getElementById('qtdModal');
-              const precoDisplay = document.getElementById('precoModalDisplay');
-              const checkboxes = document.querySelectorAll('.addon-checkbox');
-              
-              function atualizarPrecoAoVivo() {
-                  let addonsTotal = 0;
-                  document.querySelectorAll('.addon-checkbox:checked').forEach(cb => {
-                      addonsTotal += parseFloat(cb.value);
-                  });
-                  let qtdAtual = parseInt(qtdInput.value);
-                  let precoCalculado = (p.valor + addonsTotal) * qtdAtual;
-                  precoDisplay.innerText = formatarMoeda(precoCalculado);
-              }
-
-              checkboxes.forEach(cb => cb.addEventListener('change', atualizarPrecoAoVivo));
-
-              document.getElementById('btnMenosModal').onclick = () => {
-                  qtdInput.value = Math.max(1, parseInt(qtdInput.value) - 1);
-                  atualizarPrecoAoVivo();
-              };
-              document.getElementById('btnMaisModal').onclick = () => {
-                  qtdInput.value = parseInt(qtdInput.value) + 1;
-                  atualizarPrecoAoVivo();
-              };
-          },
           preConfirm: () => {
-              let selectedAddons = [];
-              let addonsTotal = 0;
-              document.querySelectorAll('.addon-checkbox:checked').forEach(cb => {
-                  selectedAddons.push(cb.getAttribute('data-nome'));
-                  addonsTotal += parseFloat(cb.value);
-              });
-
               return {
                   qtd: parseInt(document.getElementById('qtdModal').value),
-                  obs: document.getElementById('obsModal').value,
-                  addonsNomes: selectedAddons.join(', '),
-                  addonsTotal: addonsTotal
+                  obs: document.getElementById('obsModal').value
               }
           }
       }).then((result) => {
           if(result.isConfirmed) {
-              let dados = result.value;
-              let valorUnitarioNovo = p.valor + dados.addonsTotal;
-              let descFinal = p.nome;
-              
-              if (dados.addonsNomes) {
-                  descFinal += ` (+ ${dados.addonsNomes})`;
-              }
-
               carrinho.push({
                   idProduto: p.id,
-                  desc: descFinal,
-                  valorUnitario: valorUnitarioNovo,
-                  valor: valorUnitarioNovo * dados.qtd,
-                  qtd: dados.qtd,
+                  desc: p.nome,
+                  valorUnitario: p.valor,
+                  valor: p.valor * result.value.qtd,
+                  qtd: result.value.qtd,
                   ingredientes: p.ingredientes,
-                  obsCliente: dados.obs,
-                  data: new Date().toISOString().split('T'),
+                  obsCliente: result.value.obs,
+                  data: new Date().toISOString().split('T')[0],
                   tipo: 'online', 
                   pago: false,
                   pagoValor: 0,
@@ -519,8 +420,7 @@
 
   function atualizarCarrinhoFlutuante() {
       let barra = document.getElementById('carrinhoFloat');
-      
-      if(carrinho.length === 0 || !window.lojaAberta) {
+      if(carrinho.length === 0) {
           barra.style.display = 'none';
           return;
       }
@@ -533,25 +433,32 @@
       document.getElementById('cartTotalFloat').innerText = formatarMoeda(totalValor);
   }
 
-  function gerarPixDinamico(valor) {
-      let payload = "00020126580014br.gov.bcb.pix013698cf0042-4bb7-4c0a-89c3-99c180fb20ab27600016BR.COM.PAGSEGURO0136EB1DD9C1-0DBC-4E1F-9AA2-10B360792EE2520489995303986";
-      if (valor > 0) {
-          let valorStr = valor.toFixed(2);
-          let tamValor = valorStr.length.toString().padStart(2, '0');
-          payload += "54" + tamValor + valorStr;
+  function aplicarPixCardapio() {
+      let inputPix = document.getElementById('inputPixCopiaColaApp');
+      let imgPix = document.getElementById('imgPixQrApp');
+      if (!inputPix || !imgPix) return;
+
+      if (qrCodeLoja) {
+          inputPix.value = pixCopiaColaLoja || '';
+          imgPix.onload = () => { imgPix.style.display = 'block'; };
+          imgPix.onerror = () => { imgPix.style.display = 'none'; };
+          imgPix.src = '';
+          imgPix.src = qrCodeLoja;
+          imgPix.style.display = 'block';
+          return;
       }
-      payload += "5802BR5925NATHALIA PASCHOAL DA SILV6006IBAITI62290525PAGS0000000002603122142946304";
-      let polinomio = 0x1021;
-      let resultado = 0xFFFF;
-      for (let i = 0; i < payload.length; i++) {
-          resultado ^= (payload.charCodeAt(i) << 8);
-          for (let bitwise = 0; bitwise < 8; bitwise++) {
-              if ((resultado <<= 1) & 0x10000) resultado ^= polinomio;
-              resultado &= 0xFFFF;
-          }
+
+      if (pixCopiaColaLoja) {
+          inputPix.value = pixCopiaColaLoja;
+          imgPix.src = '';
+          imgPix.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixCopiaColaLoja)}&t=${Date.now()}`;
+          imgPix.style.display = 'block';
+          return;
       }
-      let crc = (resultado & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
-      return payload + crc;
+
+      inputPix.value = '';
+      imgPix.src = '';
+      imgPix.style.display = 'none';
   }
 
   function abrirCheckout() {
@@ -563,6 +470,7 @@
       document.getElementById('modalCheckout').style.display = 'none';
   }
 
+  // RECALCULA O CARRINHO E APLICA TAXA SE FOR DELIVERY
   function renderizarItensCheckout() {
       let div = document.getElementById('listaItensCheckout');
       div.innerHTML = '';
@@ -585,6 +493,7 @@
           `;
       });
       
+      // Adiciona a Taxa Visualmente se for Delivery
       if (isDelivery && taxaEntregaLoja > 0) {
           total += taxaEntregaLoja;
           div.innerHTML += `
@@ -603,11 +512,12 @@
           fecharCheckout();
           atualizarCarrinhoFlutuante();
       } else {
-          let pixDinamico = gerarPixDinamico(total);
-          document.getElementById('inputPixCopiaColaApp').value = pixDinamico;
-          document.getElementById('imgPixQrApp').src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pixDinamico)}`;
-          document.getElementById('imgPixQrApp').style.display = 'block';
+          atualizarPixCheckout();
       }
+  }
+
+  function atualizarPixCheckout() {
+      aplicarPixCardapio();
   }
 
   function removerDoCarrinho(idx) {
@@ -616,8 +526,10 @@
       atualizarCarrinhoFlutuante();
   }
 
+  // Atualiza as opções de entrega e refaz os cálculos
   function mudarModoEntrega() {
       let isDelivery = document.getElementById('modoDelivery').checked;
+      
       if(isDelivery) {
           document.getElementById('areaDelivery').style.display = 'block';
           document.getElementById('areaMesa').style.display = 'none';
@@ -627,6 +539,8 @@
           document.getElementById('areaMesa').style.display = 'block';
           document.getElementById('tituloEntregaForm').innerText = 'Retirada / Mesa';
       }
+      
+      // Atualiza o carrinho para mostrar ou esconder a taxa
       renderizarItensCheckout();
   }
   
@@ -636,10 +550,9 @@
   });
 
   function copiarPixApp() {
-      let copyText = document.getElementById("inputPixCopiaColaApp");
-      copyText.select();
-      copyText.setSelectionRange(0, 99999);
-      navigator.clipboard.writeText(copyText.value).then(() => {
+      let pix = (document.getElementById("inputPixCopiaColaApp").value || '').trim();
+      if (!pix) return Swal.fire('PIX não configurado', 'Peça ao estabelecimento configurar o PIX no sistema.', 'warning');
+      navigator.clipboard.writeText(pix).then(() => {
           Swal.fire({icon: 'success', title: 'Copiado!', text: 'Código PIX copiado com sucesso.', timer: 1500, showConfirmButton: false});
       });
   }
@@ -649,6 +562,7 @@
 
       let isDelivery = document.getElementById('modoDelivery').checked;
       let dadosCliente = { itens: [], tipoCadastro: isDelivery ? 'delivery' : 'mesa' };
+      
       let endCompletoStr = "";
 
       if(!isDelivery) {
@@ -686,6 +600,7 @@
           let itensFinais = carrinho.map(i => {
               let ingredFinais = i.ingredientes || '';
               if(i.obsCliente) ingredFinais += ` | OBS: *${i.obsCliente}*`;
+              
               return {
                   desc: i.desc, qtd: i.qtd, valor: i.valor, data: i.data, tipo: i.tipo,
                   ingredientes: ingredFinais, numPedido: numero, pago: false, pagoValor: 0, 
@@ -695,9 +610,17 @@
           
           if (isDelivery && taxaEntregaLoja > 0) {
               itensFinais.push({
-                  desc: "🛵 TAXA DE ENTREGA", qtd: 1, valor: taxaEntregaLoja, data: new Date().toISOString().split('T'),
-                  tipo: 'online', ingredientes: '', numPedido: numero, pago: false, pagoValor: 0,
-                  pronto: true, notificadoAdmin: true
+                  desc: "🛵 TAXA DE ENTREGA",
+                  qtd: 1,
+                  valor: taxaEntregaLoja,
+                  data: new Date().toISOString().split('T')[0],
+                  tipo: 'online',
+                  ingredientes: '',
+                  numPedido: numero,
+                  pago: false,
+                  pagoValor: 0,
+                  pronto: true,
+                  notificadoAdmin: true
               });
           }
           
@@ -707,23 +630,32 @@
           
           db.collection("clientes").add(dadosCliente).then(() => {
               db.collection("config").doc("empresa").update({"contador": numero});
+              
               carrinho = [];
               atualizarCarrinhoFlutuante();
               fecharCheckout();
               
               Swal.fire({
-                  title: 'Pedido Recebido! 🎉', text: 'Sua comanda já está na nossa cozinha.',
-                  icon: 'success', showCancelButton: true, confirmButtonColor: '#4CAF50',
-                  cancelButtonColor: '#888', confirmButtonText: 'Avisar no WhatsApp', cancelButtonText: 'Fechar'
+                  title: 'Pedido Recebido! 🎉',
+                  text: 'Sua comanda já está na nossa cozinha.',
+                  icon: 'success',
+                  showCancelButton: true,
+                  confirmButtonColor: '#4CAF50',
+                  cancelButtonColor: '#888',
+                  confirmButtonText: 'Avisar no WhatsApp',
+                  cancelButtonText: 'Fechar'
               }).then((result) => {
                   if (result.isConfirmed && foneLoja) {
                       let textoZap = `*NOVO PEDIDO (ONLINE)* 🍔\n\n*Cliente:* ${dadosCliente.nome}\n*Modo:* ${isDelivery ? 'Delivery 🛵' : 'Mesa/Local 🪑'}\n*Endereço:* ${endCompletoStr}\n*Pagamento:* ${infoPagamento}\n\n*Itens:*`;
+                      
                       let valorTotalZap = 0;
                       itensFinais.forEach(i => {
                           valorTotalZap += i.valor;
                           textoZap += `\n- ${i.qtd}x ${i.desc} (R$ ${i.valor.toFixed(2)})`;
                       });
+                      
                       textoZap += `\n\n*Total a pagar:* R$ ${valorTotalZap.toFixed(2)}`;
+                      
                       let url = `https://wa.me/55${foneLoja}?text=${encodeURIComponent(textoZap)}`;
                       window.open(url, '_blank');
                   }
