@@ -262,8 +262,11 @@
               <h4 style="color:#29B6F6; margin-top:15px; margin-bottom:5px;">🛵 Taxa de Entrega</h4>
               <input type="number" id="confEmpTaxa" placeholder="Valor da Taxa Padrão (R$)" style="margin-bottom:8px;">
 
-              <h4 style="color:var(--success); margin-top:15px; margin-bottom:5px;">💠 Imagem do QR Code PIX</h4>
-              <label style="font-size:11px; color:#aaa; margin-top:5px; display:block;">Selecione a imagem do QR Code:</label>
+              <h4 style="color:var(--success); margin-top:15px; margin-bottom:5px;">💠 PIX para Recebimento</h4>
+              <label style="font-size:11px; color:#aaa; margin-top:5px; display:block;">Código PIX Copia e Cola (gerado no app do banco):</label>
+              <textarea id="confEmpPix" placeholder="Cole aqui o código PIX copia e cola completo..." rows="4" style="width:100%; margin-bottom:8px; font-size:11px; font-family:monospace; resize:vertical;"></textarea>
+
+              <label style="font-size:11px; color:#aaa; margin-top:5px; display:block;">Imagem do QR Code (opcional — foto do QR do banco):</label>
               <input type="file" id="qrInput" accept="image/*" style="margin-bottom:8px;">
 
               <label style="font-size:11px; color:#aaa; margin-top:10px; display:block;">Selecione a logo para salvar (Nuvem):</label>
@@ -521,7 +524,7 @@
             <img id="imgPixQr" src="" style="width:200px; height:200px; border:2px solid #AB47BC; padding:5px; border-radius:10px; object-fit: contain; display:none; margin: 0 auto;">
             <p style="color:#000; font-size:14px; font-weight:bold; margin-top:10px; margin-bottom:5px;">PIX Copia e Cola:</p>
             <div style="display:flex; gap:5px; justify-content:center; align-items:center;">
-                <input type="text" id="inputPixCopiaCola" value="00020126580014br.gov.bcb.pix013698cf0042-4bb7-4c0a-89c3-99c180fb20ab27600016BR.COM.PAGSEGURO0136EB1DD9C1-0DBC-4E1F-9AA2-10B360792EE25204899953039865802BR5925NATHALIA PASCHOAL DA SILV6006IBAITI62290525PAGS00000000026031221429463047C7F" readonly style="flex:1; font-size:10px; padding:10px; border:1px solid #ccc; border-radius:5px; background:#f9f9f9; color:#333;">
+                <input type="text" id="inputPixCopiaCola" value="" readonly placeholder="Configure o PIX em Configurações" style="flex:1; font-size:10px; padding:10px; border:1px solid #ccc; border-radius:5px; background:#f9f9f9; color:#333;">
                 <button onclick="copiarPix()" style="background:#AB47BC; color:#fff; border:none; padding:10px 15px; border-radius:5px; font-weight:bold; cursor:pointer;">COPIAR</button>
             </div>
         </div>
@@ -628,17 +631,21 @@
 
 <script>
   // ================= CONFIGURAÇÃO FIREBASE =================
-  const firebaseConfig = window.FIREBASE_CONFIG;
-  if (!firebaseConfig) {
-      throw new Error("FIREBASE_CONFIG não encontrado. Configure o arquivo firebase-env.js.");
-  }
+  const firebaseConfig = window.FIREBASE_CONFIG || {
+    apiKey: "AIzaSyCzVRXFXsD1dAgy4cyvSF0qjZwb2sVdB_E",
+    authDomain: "sistema-de-pastelaria.firebaseapp.com",
+    projectId: "sistema-de-pastelaria",
+    storageBucket: "sistema-de-pastelaria.firebasestorage.app",
+    messagingSenderId: "857527247447",
+    appId: "1:857527247447:web:7b055dd4f3bdabc5f17912"
+  };
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.firestore();
   const auth = firebase.auth();
   
   let clientes = []; let catalogo = []; 
-  let empDados = { nome: "Trailer da Naty", end: "", tel: "", qrCodeBase64: "", taxaEntrega: 0, statusLoja: 'aberto' };
+  let empDados = { nome: "Trailer da Naty", end: "", tel: "", qrCodeBase64: "", pixCopiaCola: "", taxaEntrega: 0, statusLoja: 'aberto' };
   let logoBase64 = localStorage.getItem('logoPastelaria') || "";
   let carrinhoCompras = []; let ingredientesTemp = [];
   let payRef = null; let caixaTotal = []; 
@@ -649,6 +656,10 @@
   
   let paginaAtual = 1;
   const ITENS_POR_PAGINA = 10;
+
+  function gerarIdItem() {
+      return Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+  }
   
   let categoriaFiltroModal = 'TODAS';
   let valorSendoPagoNoModal = 0;
@@ -805,21 +816,40 @@
   }
 
   // ================= SISTEMA EXIBIR QR CODE FIXO E COPIA/COLA =================
+  function obterPixCopiaCola() {
+      return String(empDados.pixCopiaCola || '').trim();
+  }
+
+  function preencherInputPixCopiaCola() {
+      let el = document.getElementById('inputPixCopiaCola');
+      if (el) el.value = obterPixCopiaCola();
+  }
+
   function mostrarQrCodeFixo() {
+      let pix = obterPixCopiaCola();
+      preencherInputPixCopiaCola();
+
+      if (!pix) {
+          Swal.fire('PIX não configurado', 'Vá em Configurações & Backup, cole o código PIX Copia e Cola e clique em SALVAR DADOS.', 'warning');
+      }
+
+      let imgEl = document.getElementById('imgPixQr');
       if (empDados.qrCodeBase64) {
-          document.getElementById('imgPixQr').src = empDados.qrCodeBase64;
-          document.getElementById('imgPixQr').style.display = 'block';
+          imgEl.src = empDados.qrCodeBase64;
+          imgEl.style.display = 'block';
+      } else if (pix) {
+          imgEl.src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(pix)}`;
+          imgEl.style.display = 'block';
       } else {
-          document.getElementById('imgPixQr').style.display = 'none';
+          imgEl.style.display = 'none';
       }
       document.getElementById('areaQrCodeVisor').style.display = 'block';
   }
 
   function copiarPix() {
-      let copyText = document.getElementById("inputPixCopiaCola");
-      copyText.select();
-      copyText.setSelectionRange(0, 99999);
-      navigator.clipboard.writeText(copyText.value).then(() => {
+      let pix = obterPixCopiaCola();
+      if (!pix) return Swal.fire('PIX não configurado', 'Configure o código em Configurações & Backup.', 'warning');
+      navigator.clipboard.writeText(pix).then(() => {
           Swal.fire({icon: 'success', title: 'Copiado!', text: 'Código PIX copiado com sucesso.', timer: 1500, showConfirmButton: false});
       });
   }
@@ -887,12 +917,13 @@
   // ================= LOGIN BLINDADO E MANUAL =================
   auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
   let isLogadoNestaSessao = sessionStorage.getItem("logado_agora");
+  let loginEmAndamento = false;
 
   auth.onAuthStateChanged((user) => {
-      if (user && isLogadoNestaSessao === "sim") {
-          carregarSistema(user);
+      if (user && (isLogadoNestaSessao === "sim" || loginEmAndamento)) {
+          if (isLogadoNestaSessao === "sim") carregarSistema(user);
       } else {
-          if(user) { auth.signOut(); }
+          if (user && !loginEmAndamento) { auth.signOut(); }
           document.getElementById('loginOverlay').style.display = 'flex';
           voltarLogin();
       }
@@ -905,18 +936,46 @@
       const msgBox = document.getElementById('msgLogin');
       
       if(!email || !pass) { msgBox.innerText = "Preencha e-mail e senha."; return; }
+
+      if (location.protocol === 'file:') {
+          msgBox.style.color = "#FFCA28";
+          msgBox.innerText = "Abra pelo Chrome com endereço http:// (não file://). Use Live Server ou abra pelo link hospedado.";
+      }
       
       msgBox.innerText = "Carregando..."; msgBox.style.color = "#FFCA28"; 
+      loginEmAndamento = true;
       
       if(document.getElementById('chkLembrarEmail').checked) { localStorage.setItem('naty_email_login', email); } 
       else { localStorage.removeItem('naty_email_login'); }
+
+      sessionStorage.setItem("logado_agora", "sim");
+      isLogadoNestaSessao = "sim";
+
+      let tempoLimite = setTimeout(() => {
+          if (loginEmAndamento) {
+              loginEmAndamento = false;
+              msgBox.style.color = "#EF5350";
+              msgBox.innerText = "Sem resposta do servidor. Verifique a internet ou abra o sistema por http:// (não como arquivo local).";
+          }
+      }, 20000);
       
       auth.signInWithEmailAndPassword(email, pass).then((userCred) => {
+          clearTimeout(tempoLimite);
+          loginEmAndamento = false;
           msgBox.innerText = "Login aprovado! Entrando..."; msgBox.style.color = "#66BB6A"; 
-          document.getElementById('senhaInput').value = ''; 
-          sessionStorage.setItem("logado_agora", "sim"); isLogadoNestaSessao = "sim";
+          document.getElementById('senhaInput').value = '';
+          carregarSistema(userCred.user);
       }).catch(err => {
-          msgBox.style.color = "#EF5350"; msgBox.innerText = "Senha incorreta ou acesso bloqueado.";
+          clearTimeout(tempoLimite);
+          loginEmAndamento = false;
+          sessionStorage.removeItem("logado_agora");
+          isLogadoNestaSessao = null;
+          msgBox.style.color = "#EF5350";
+          let msg = "Senha incorreta ou e-mail não encontrado.";
+          if (err.code === 'auth/network-request-failed') msg = "Sem internet ou Firebase bloqueado. Abra por http://localhost, não pelo arquivo C:\\.";
+          else if (err.code === 'auth/too-many-requests') msg = "Muitas tentativas. Aguarde alguns minutos.";
+          else if (err.message) msg = err.message;
+          msgBox.innerText = msg;
       }); 
   }
 
@@ -969,7 +1028,8 @@
       db.collection("config").doc("empresa").onSnapshot((doc) => {
           if(doc.exists) {
               let d = doc.data();
-              empDados = { nome: d.nome, end: d.end, tel: d.tel, qrCodeBase64: d.qrCode, taxaEntrega: d.taxaEntrega || 0, statusLoja: d.statusLoja || 'aberto' };
+              empDados = { nome: d.nome, end: d.end, tel: d.tel, qrCodeBase64: d.qrCode, pixCopiaCola: d.pixCopiaCola || '', taxaEntrega: d.taxaEntrega || 0, statusLoja: d.statusLoja || 'aberto' };
+              preencherInputPixCopiaCola();
               
               // Atualiza o botão de status visualmente
               let btnStatus = document.getElementById('btnStatusLoja');
@@ -1431,7 +1491,7 @@
       let desc = document.getElementById('descricao').value; let qtd = Number(document.getElementById('quantidade').value); let valStr = document.getElementById('valorUnitario').value.replace(',','.'); let val = Number(valStr);
       if(!desc || val <= 0) return Swal.fire('Erro', 'Selecione um produto', 'error');
       
-      let item = { desc: desc, qtd: qtd, valor: val * qtd, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, ingredientes: document.getElementById('displayIngredientes').innerText, numPedido: document.getElementById('numPedido').value || 1, pago: false, pagoValor: 0, pronto: false, notificadoAdmin: true }; 
+      let item = { itemId: gerarIdItem(), desc: desc, qtd: qtd, valor: val * qtd, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, ingredientes: document.getElementById('displayIngredientes').innerText, numPedido: document.getElementById('numPedido').value || 1, pago: false, pagoValor: 0, pronto: false, notificadoAdmin: true }; 
       carrinhoCompras.push(item); renderCarrinho(); document.getElementById('descricao').value = ''; document.getElementById('quantidade').value = '1'; document.getElementById('valorUnitario').value = ''; document.getElementById('displayIngredientes').innerText = '';
   }
 
@@ -1457,12 +1517,16 @@
       if(!id) return Swal.fire('Aviso', 'Por favor, selecione um cliente na lista acima.', 'warning');
       
       let taxa = Number(document.getElementById('inputTaxa').value) || 0;
-      if(taxa > 0) carrinhoCompras.push({ desc: "🛵 TAXA DE ENTREGA", qtd: 1, valor: taxa, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, pronto: true, pago: false, notificadoAdmin: true, numPedido: document.getElementById('numPedido').value || 1 });
+      if(taxa > 0) carrinhoCompras.push({ itemId: gerarIdItem(), desc: "🛵 TAXA DE ENTREGA", qtd: 1, valor: taxa, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, pronto: true, pago: false, notificadoAdmin: true, numPedido: document.getElementById('numPedido').value || 1 });
       
       let desc = Number(document.getElementById('inputDesconto').value) || 0;
-      if(desc > 0) carrinhoCompras.push({ desc: "🔻 DESCONTO APLICADO", qtd: 1, valor: -desc, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, pronto: true, pago: false, notificadoAdmin: true, numPedido: document.getElementById('numPedido').value || 1 });
+      if(desc > 0) carrinhoCompras.push({ itemId: gerarIdItem(), desc: "🔻 DESCONTO APLICADO", qtd: 1, valor: -desc, data: document.getElementById('dataEntrada').value, tipo: document.querySelector('input[name="tipoPedido"]:checked').value, pronto: true, pago: false, notificadoAdmin: true, numPedido: document.getElementById('numPedido').value || 1 });
 
-      db.collection("clientes").doc(id).update({itens:firebase.firestore.FieldValue.arrayUnion(...carrinhoCompras)}).then(()=>{ 
+      let clienteAtual = clientes.find(c => c.id === id);
+      let itensAtuais = Array.isArray(clienteAtual?.itens) ? [...clienteAtual.itens] : [];
+      let itensFinais = [...itensAtuais, ...carrinhoCompras];
+
+      db.collection("clientes").doc(id).update({itens: itensFinais}).then(()=>{ 
           carrinhoCompras=[]; 
           document.getElementById('inputTaxa').value = '';
           document.getElementById('inputDesconto').value = '';
@@ -2103,6 +2167,9 @@
           } else {
               document.getElementById('confEmpTaxa').value = '';
           }
+          if(document.getElementById('confEmpPix')) {
+              document.getElementById('confEmpPix').value = empDados.pixCopiaCola || '';
+          }
       } 
   }
   
@@ -2143,8 +2210,9 @@
       let e = document.getElementById('confEmpEnd').value; 
       let t = document.getElementById('confEmpTel').value; 
       let tx = Number(document.getElementById('confEmpTaxa').value.replace(',', '.')) || 0; 
+      let pix = (document.getElementById('confEmpPix').value || '').trim();
       
-      db.collection("config").doc("empresa").set({ nome: n, end: e, tel: t, taxaEntrega: tx }, {merge: true}).then(() => Swal.fire('Configurações Salvas!','','success')); 
+      db.collection("config").doc("empresa").set({ nome: n, end: e, tel: t, taxaEntrega: tx, pixCopiaCola: pix }, {merge: true}).then(() => Swal.fire('Configurações Salvas!','','success')); 
   }
   
   function editarDadosCliente(id) { let c = clientes.find(x => x.id === id); let novoNome = prompt("Deseja alterar o NOME?", c.nome); if(novoNome && novoNome.trim() !== '') { db.collection("clientes").doc(id).update({nome: novoNome.toUpperCase()}).then(() => Swal.fire('Nome alterado!', '', 'success')); } }
