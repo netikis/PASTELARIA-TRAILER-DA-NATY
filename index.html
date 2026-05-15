@@ -129,6 +129,10 @@
 
   /* KDS CARD */
   .kds-card { background: #fff; color: #000; padding: 15px; border-radius: 12px; border-top: 6px solid #FFCA28; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+  .kds-card.kds-prioridade { box-shadow: 0 0 0 3px #f44336, 0 8px 20px rgba(0,0,0,0.45); }
+  .kds-fila-num { font-size: 28px; font-weight: 900; color: #f44336; line-height: 1; min-width: 36px; }
+  .kds-hora-pedido { font-size: 22px; font-weight: 900; color: #333; letter-spacing: 0.5px; }
+  .kds-espera { font-size: 11px; color: #666; font-weight: bold; margin-top: 2px; }
   .kds-item-row { border-bottom: 1px dashed #ccc; padding: 8px 0; }
   .kds-item-row:last-child { border-bottom: none; }
 
@@ -726,6 +730,31 @@
       let d = new Date();
       let z = d.getTimezoneOffset() * 60000;
       return (new Date(d - z)).toISOString(); 
+  }
+
+  function formatarHoraPedido(iso) {
+      if (!iso) return '';
+      let d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function calcularTempoEsperaPedido(iso) {
+      if (!iso) return '';
+      let d = new Date(iso);
+      if (isNaN(d.getTime())) return '';
+      let min = Math.floor((Date.now() - d.getTime()) / 60000);
+      if (min < 1) return 'agora';
+      if (min === 1) return 'há 1 min';
+      return 'há ' + min + ' min';
+  }
+
+  function obterTimestampOrdenacaoKDS(ped) {
+      if (ped.horaPedido) {
+          let t = new Date(ped.horaPedido).getTime();
+          if (!isNaN(t)) return t;
+      }
+      return Number(ped.num) || 0;
   }
 
   // ================= CONTROLE DE LOJA ABERTA/FECHADA =================
@@ -1428,33 +1457,65 @@
   // ================= KDS (COZINHA) =================
   function toggleKDS() { document.body.classList.toggle('mode-kds'); if(document.body.classList.contains('mode-kds')) renderKDS(); }
 
+  function htmlCozinhaVaziaKDS() {
+      return '<span style="grid-column:1/-1;display:block;text-align:center;padding:50px;"><h2 style="color:#fff;font-size:32px;">Cozinha Livre! 🎉</h2></span>';
+  }
+
  function renderKDS() {
       const p = document.getElementById('painelKDS'); p.innerHTML = ''; let pedidosAgrupados = [];
       clientes.forEach(c => {
           if(!Array.isArray(c.itens)) return;
-          let itensPendentes = []; let indicesOriginais = [];
-          c.itens.forEach((i, idx) => { 
-              if(!i.pronto && !i.desc.includes('🛵 TAXA DE ENTREGA') && !i.desc.includes('🔻 DESCONTO')) { 
-                  itensPendentes.push(i); indicesOriginais.push(idx); 
-              } 
+          let grupos = {};
+          c.itens.forEach((i, idx) => {
+              if(i.pronto || i.desc.includes('🛵 TAXA DE ENTREGA') || i.desc.includes('🔻 DESCONTO')) return;
+              let chave = String(i.numPedido != null ? i.numPedido : 'sem');
+              if(!grupos[chave]) grupos[chave] = { itens: [], indices: [], horaPedido: null };
+              grupos[chave].itens.push(i);
+              grupos[chave].indices.push(idx);
+              if(i.horaPedido && (!grupos[chave].horaPedido || new Date(i.horaPedido) < new Date(grupos[chave].horaPedido))) {
+                  grupos[chave].horaPedido = i.horaPedido;
+              }
           });
-          
-          if(itensPendentes.length > 0) { pedidosAgrupados.push({ cid: c.id, nome: c.nome, itens: itensPendentes, indices: indicesOriginais, tipo: itensPendentes[0].tipo, num: itensPendentes[0].numPedido }); }
+          Object.keys(grupos).forEach(chave => {
+              let g = grupos[chave];
+              if(g.itens.length === 0) return;
+              pedidosAgrupados.push({
+                  cid: c.id, nome: c.nome, itens: g.itens, indices: g.indices,
+                  tipo: g.itens[0].tipo, num: g.itens[0].numPedido, horaPedido: g.horaPedido
+              });
+          });
       });
 
-      if(pedidosAgrupados.length === 0) { p.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:50px;"><h2 style="color:#fff; font-size:32px;">Cozinha Livre! 🎉</h2></div>'; return; }
+      pedidosAgrupados.sort((a, b) => obterTimestampOrdenacaoKDS(a) - obterTimestampOrdenacaoKDS(b));
 
-      pedidosAgrupados.forEach(ped => {
-          let cor = ped.tipo === 'online' ? '#E3F2FD' : '#FFF3E0'; let border = ped.tipo === 'online' ? '#2196F3' : '#FF9800'; let txtTipo = ped.tipo === 'online' ? 'ONLINE' : 'BALCÃO';
+      if(pedidosAgrupados.length === 0) { p.innerHTML = htmlCozinhaVaziaKDS(); return; }
+
+      pedidosAgrupados.forEach((ped, idx) => {
+          let posicao = idx + 1;
+          let cor = ped.tipo === 'online' ? '#E3F2FD' : '#FFF3E0';
+          let border = ped.tipo === 'online' ? '#2196F3' : '#FF9800';
+          let txtTipo = ped.tipo === 'online' ? 'ONLINE' : 'BALCÃO';
+          let horaTxt = formatarHoraPedido(ped.horaPedido);
+          let esperaTxt = calcularTempoEsperaPedido(ped.horaPedido);
+          let horaBloco = horaTxt
+              ? '<p class="kds-hora-pedido">🕐 ' + horaTxt + '</p><p class="kds-espera">' + esperaTxt + '</p>'
+              : '<p style="font-size:12px;color:#888;font-weight:bold;margin:0;">Sem horário (ped. antigo)</p>';
           let htmlItens = ped.itens.map(i => `
               <div class="kds-item-row"><div style="font-size:22px; font-weight:900;">${i.qtd}x ${i.desc}</div><div style="color:#444; font-style:italic; font-size:14px;">${i.ingredientes || ''}</div></div>
           `).join('');
 
           p.innerHTML += `
-              <div class="kds-card" style="background:${cor}; border-top-color:${border};">
-                  <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid ${border}; padding-bottom:10px; margin-bottom:15px;">
-                      <div style="font-size:18px; font-weight:900; background:${border}; color:#fff; padding:6px 12px; border-radius:8px; text-transform:uppercase;">👤 ${ped.nome}</div>
-                      <div style="font-size:12px; font-weight:bold; color:${border}; border:2px solid ${border}; padding:4px 8px; border-radius:6px;">${txtTipo}</div>
+              <div class="kds-card${posicao === 1 ? ' kds-prioridade' : ''}" style="background:${cor}; border-top-color:${border};">
+                  <div style="display:flex; gap:12px; align-items:center; border-bottom:2px solid ${border}; padding-bottom:10px; margin-bottom:15px;">
+                      <span class="kds-fila-num">#${posicao}</span>
+                      <div style="flex:1;">
+                          <div style="font-size:18px; font-weight:900; background:${border}; color:#fff; padding:6px 12px; border-radius:8px; text-transform:uppercase; display:inline-block;">👤 ${ped.nome}</div>
+                          <div style="margin-top:6px;">${horaBloco}</div>
+                      </div>
+                      <div style="text-align:right;">
+                          <div style="font-size:12px; font-weight:bold; color:${border}; border:2px solid ${border}; padding:4px 8px; border-radius:6px;">${txtTipo}</div>
+                          <div style="font-size:11px; color:#555; margin-top:4px; font-weight:bold;">Nº ${ped.num || '—'}</div>
+                      </div>
                   </div>
                   <div style="flex:1; margin-bottom:20px;">${htmlItens}</div>
                   <button class="success" onclick="marcarGrupoPronto('${ped.cid}', '${ped.indices.join(',')}')" style="width:100%; padding:18px; font-size:18px; font-weight:900; border-radius:10px; margin-top:auto; box-shadow:0 4px 6px rgba(0,0,0,0.2);">✅ PEDIDO PRONTO</button>
@@ -1751,6 +1812,8 @@
 
       let clienteAtual = clientes.find(c => c.id === id);
       let itensAtuais = Array.isArray(clienteAtual?.itens) ? [...clienteAtual.itens] : [];
+      let horaPedido = obterDataHoraLocal();
+      carrinhoCompras.forEach(i => { i.horaPedido = horaPedido; });
       let itensFinais = [...itensAtuais, ...carrinhoCompras];
 
       db.collection("clientes").doc(id).update({itens: itensFinais}).then(()=>{ 
@@ -1787,12 +1850,94 @@
           let matchCat = categoriaFiltroModal === 'TODAS' || p.categoria === categoriaFiltroModal || (!p.categoria && categoriaFiltroModal === 'TODAS');
           return matchNome && matchCat;
       }).forEach(p => { 
-          html += `<div style="display:flex; justify-content:space-between; background:#222; padding:15px; margin-bottom:8px; border-radius:10px; border:1px solid #444; align-items:center;"><div><div style="font-weight:900; font-size:16px; color:#fff;">${p.nome}</div><div style="font-size:11px; color:#aaa; font-style:italic;">${p.ingredientes || ''}</div><div style="color:#66BB6A; font-weight:bold; font-size:14px; margin-top:5px;">${formatarMoeda(p.valor)}</div></div><button class="dark" onclick="selecionarProduto('${p.nome}', ${p.valor}, '${p.ingredientes || ''}')" style="background:#FFCA28; color:#000; padding:10px 20px; font-size:14px;">➕</button></div>`; 
+          html += `<div style="display:flex; justify-content:space-between; background:#222; padding:15px; margin-bottom:8px; border-radius:10px; border:1px solid #444; align-items:center;"><div><div style="font-weight:900; font-size:16px; color:#fff;">${p.nome}</div><div style="font-size:11px; color:#aaa; font-style:italic;">${p.ingredientes || ''}</div><div style="color:#66BB6A; font-weight:bold; font-size:14px; margin-top:5px;">${formatarMoeda(p.valor)}</div></div><button class="dark" onclick="iniciarSelecaoProdutoCaixa('${p.id}')" style="background:#FFCA28; color:#000; padding:10px 20px; font-size:14px;">➕</button></div>`; 
       }); 
       document.getElementById('listaProdutosModal').innerHTML = html || '<div style="text-align:center; color:#aaa; padding:10px;">Nenhum produto encontrado.</div>'; 
   }
 
-  function selecionarProduto(n, v, i) { document.getElementById('descricao').value = n; document.getElementById('valorUnitario').value = v; document.getElementById('displayIngredientes').innerText = i; document.getElementById('modalSelecaoProdutos').style.display = 'none'; }
+  function categoriaEhAdicionalExtra(cat) {
+      let c = String(cat || '').toUpperCase();
+      return c === 'ADICIONAIS EXTRAS' || c.includes('ADICIONAL');
+  }
+  function obterAdicionaisDoCatalogoCaixa() {
+      return catalogo.filter(p => categoriaEhAdicionalExtra(p.categoria));
+  }
+  function produtoPermiteAdicionaisExtras(p) {
+      if (!p || categoriaEhAdicionalExtra(p.categoria)) return false;
+      let c = String(p.categoria || '').toUpperCase();
+      if (c === 'BEBIDAS' || c === 'PORÇÕES' || c === 'PORCOES') return false;
+      if (c.includes('PASTÉ') || c === 'PASTÉIS SALGADOS' || c === 'PASTÉIS DOCES') return true;
+      let nome = String(p.nome || '').toLowerCase();
+      if (['coca', 'suco', 'água', 'agua', 'guaraná', 'refrigerante', 'cerveja', 'porção', 'porcao'].some(b => nome.includes(b))) return false;
+      return true;
+  }
+  function montarHtmlCheckboxesAdicionaisCaixa() {
+      let lista = obterAdicionaisDoCatalogoCaixa();
+      if (lista.length === 0) return '<p style="font-size:12px;color:#888;">Cadastre itens em ADICIONAIS EXTRAS nas configurações.</p>';
+      return lista.map(a => {
+          let nomeEsc = String(a.nome).replace(/"/g, '&quot;');
+          return '<label style="display:flex;justify-content:space-between;padding:8px;margin-bottom:5px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:13px;color:#333;"><span><input type="checkbox" class="chk-adicional-extra-caixa" data-nome="' + nomeEsc + '" data-valor="' + (Number(a.valor)||0) + '" onchange="atualizarTotalModalAdicionaisCaixa()"> ' + a.nome + '</span><span style="color:#66BB6A;font-weight:bold;">+ ' + formatarMoeda(a.valor) + '</span></label>';
+      }).join('');
+  }
+  function lerAdicionaisSelecionadosCaixa() {
+      let sel = [];
+      document.querySelectorAll('.chk-adicional-extra-caixa:checked').forEach(chk => {
+          sel.push({ nome: chk.dataset.nome, valor: Number(chk.dataset.valor) || 0 });
+      });
+      return sel;
+  }
+  function textoIngredientesComAdicionais(base, adicionais) {
+      let partes = [];
+      if (base) partes.push(String(base).trim());
+      if (adicionais && adicionais.length) partes.push('Adicionais: ' + adicionais.map(a => a.nome).join(', '));
+      return partes.join(' | ');
+  }
+  let precoBaseModalAdicCaixa = 0;
+  function atualizarTotalModalAdicionaisCaixa() {
+      let extra = lerAdicionaisSelecionadosCaixa().reduce((s, a) => s + a.valor, 0);
+      let el = document.getElementById('totalModalAdicCaixa');
+      if (el) el.innerHTML = '<strong style="color:#66BB6A;font-size:16px;">Total: ' + formatarMoeda(precoBaseModalAdicCaixa + extra) + '</strong>';
+  }
+
+  function selecionarProduto(n, v, i) {
+      document.getElementById('descricao').value = n;
+      document.getElementById('valorUnitario').value = v;
+      document.getElementById('displayIngredientes').innerText = i;
+      document.getElementById('modalSelecaoProdutos').style.display = 'none';
+  }
+
+  function iniciarSelecaoProdutoCaixa(id) {
+      let p = catalogo.find(x => x.id === id);
+      if (!p) return;
+      if (!produtoPermiteAdicionaisExtras(p)) {
+          selecionarProduto(p.nome, p.valor, p.ingredientes || '');
+          return;
+      }
+      precoBaseModalAdicCaixa = Number(p.valor) || 0;
+      Swal.fire({
+          title: p.nome,
+          html: '<p style="text-align:left;font-size:13px;color:#555;margin-bottom:10px;font-style:italic;">' + (p.ingredientes || '') + '</p>'
+              + '<p style="font-weight:bold;font-size:18px;color:#66BB6A;margin-bottom:8px;">Base: ' + formatarMoeda(p.valor) + '</p>'
+              + '<p style="text-align:left;font-weight:bold;margin:10px 0 6px;">Adicionais extras (opcional):</p>'
+              + '<div style="max-height:180px;overflow-y:auto;">' + montarHtmlCheckboxesAdicionaisCaixa() + '</div>'
+              + '<span id="totalModalAdicCaixa" style="display:block;text-align:center;margin:10px 0;"></span>',
+          showCancelButton: true,
+          confirmButtonColor: '#FFCA28',
+          cancelButtonColor: '#666',
+          confirmButtonText: 'Usar no pedido',
+          cancelButtonText: 'Cancelar',
+          didOpen: () => atualizarTotalModalAdicionaisCaixa(),
+          preConfirm: () => ({ adicionais: lerAdicionaisSelecionadosCaixa() })
+      }).then((result) => {
+          if (!result.isConfirmed) return;
+          let adic = result.value.adicionais || [];
+          let unit = precoBaseModalAdicCaixa + adic.reduce((s, a) => s + a.valor, 0);
+          document.getElementById('descricao').value = p.nome;
+          document.getElementById('valorUnitario').value = unit;
+          document.getElementById('displayIngredientes').innerText = textoIngredientesComAdicionais(p.ingredientes, adic);
+          document.getElementById('modalSelecaoProdutos').style.display = 'none';
+      });
+  }
 
   // ================= TRADUTOR DE DATAS =================
   function normalizarData(dStr) {
