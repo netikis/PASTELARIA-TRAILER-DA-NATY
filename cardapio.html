@@ -317,6 +317,8 @@
       }
 
       catalogoLoja.forEach(p => {
+          if (categoriaEhAdicionalExtra(p.categoria)) return;
+
           let categoria = p.categoria;
           
           if(!categoria) {
@@ -362,22 +364,75 @@
       document.getElementById('secaoOutros').style.display = countOutros > 0 ? 'block' : 'none';
   }
 
+  // ================= ADICIONAIS EXTRAS =================
+  function categoriaEhAdicionalExtra(cat) {
+      let c = String(cat || '').toUpperCase();
+      return c === 'ADICIONAIS EXTRAS' || c.includes('ADICIONAL');
+  }
+  function obterAdicionaisDoCatalogo() {
+      return catalogoLoja.filter(p => categoriaEhAdicionalExtra(p.categoria));
+  }
+  function produtoPermiteAdicionaisExtras(p) {
+      if (!p || categoriaEhAdicionalExtra(p.categoria)) return false;
+      let c = String(p.categoria || '').toUpperCase();
+      if (c === 'BEBIDAS' || c === 'PORÇÕES' || c === 'PORCOES') return false;
+      if (c.includes('PASTÉ') || c === 'PASTÉIS SALGADOS' || c === 'PASTÉIS DOCES') return true;
+      let nome = String(p.nome || '').toLowerCase();
+      if (['coca', 'suco', 'água', 'agua', 'guaraná', 'refrigerante', 'cerveja', 'porção', 'porcao'].some(b => nome.includes(b))) return false;
+      return true;
+  }
+  function montarHtmlCheckboxesAdicionais() {
+      let lista = obterAdicionaisDoCatalogo();
+      if (lista.length === 0) return '<p style="font-size:12px;color:#888;">Cadastre em ADICIONAIS EXTRAS no caixa.</p>';
+      return lista.map(a => {
+          let nomeEsc = String(a.nome).replace(/"/g, '&quot;');
+          return '<label style="display:flex;justify-content:space-between;padding:8px;margin-bottom:5px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;cursor:pointer;font-size:13px;"><span><input type="checkbox" class="chk-adicional-extra" data-nome="' + nomeEsc + '" data-valor="' + (Number(a.valor)||0) + '" onchange="atualizarTotalModalAdicionais()"> ' + a.nome + '</span><span style="color:#4CAF50;font-weight:bold;">+ ' + formatarMoeda(a.valor) + '</span></label>';
+      }).join('');
+  }
+  function lerAdicionaisSelecionadosModal() {
+      let sel = [];
+      document.querySelectorAll('.chk-adicional-extra:checked').forEach(chk => {
+          sel.push({ nome: chk.dataset.nome, valor: Number(chk.dataset.valor) || 0 });
+      });
+      return sel;
+  }
+  function textoIngredientesComAdicionais(base, adicionais) {
+      let partes = [];
+      if (base) partes.push(String(base).trim());
+      if (adicionais && adicionais.length) partes.push('Adicionais: ' + adicionais.map(a => a.nome).join(', '));
+      return partes.join(' | ');
+  }
+  let precoBaseModalAdic = 0;
+  function atualizarTotalModalAdicionais() {
+      let extra = lerAdicionaisSelecionadosModal().reduce((s, a) => s + a.valor, 0);
+      let qtd = parseInt(document.getElementById('qtdModal')?.value) || 1;
+      let el = document.getElementById('totalModalAdic');
+      if (el) el.innerHTML = '<strong style="color:#4CAF50;font-size:18px;">Total: ' + formatarMoeda((precoBaseModalAdic + extra) * qtd) + '</strong>';
+  }
+
   // ================= ADICIONAR AO CARRINHO =================
   function modalAddProduto(id) {
       let p = catalogoLoja.find(x => x.id === id);
-      
+      if (!p) return;
+      precoBaseModalAdic = Number(p.valor) || 0;
+      let blocoAdic = '';
+      if (produtoPermiteAdicionaisExtras(p)) {
+          blocoAdic = '<p style="text-align:left;margin-top:10px;border-top:1px dashed #ddd;padding-top:10px;font-weight:bold;color:#3E2723;">Adicionais extras (opcional):</p><div style="max-height:160px;overflow-y:auto;">' + montarHtmlCheckboxesAdicionais() + '</div>';
+      }
+
       Swal.fire({
           title: p.nome,
           html: `
               <div style="text-align:left; font-size:13px; color:#555; margin-bottom:15px; font-style:italic;">${p.ingredientes || ''}</div>
-              <div style="text-align:left; font-weight:bold; font-size:20px; color:#4CAF50; margin-bottom:15px;">${formatarMoeda(p.valor)}</div>
-              
+              <p style="text-align:left; font-weight:bold; font-size:18px; color:#4CAF50; margin-bottom:8px;">Base: ${formatarMoeda(p.valor)}</p>
+              ${blocoAdic}
+              <span id="totalModalAdic" style="display:block;text-align:center;margin:8px 0;"></span>
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; background:#f5f5f5; padding:10px; border-radius:8px;">
                   <span style="font-weight:bold; color:#333;">Quantidade:</span>
                   <div style="display:flex; align-items:center; gap:10px;">
-                      <button onclick="document.getElementById('qtdModal').value = Math.max(1, parseInt(document.getElementById('qtdModal').value)-1)" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold;">-</button>
+                      <button type="button" onclick="document.getElementById('qtdModal').value=Math.max(1,parseInt(document.getElementById('qtdModal').value)-1);atualizarTotalModalAdicionais()" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold;">-</button>
                       <input type="number" id="qtdModal" value="1" min="1" readonly style="width:40px; text-align:center; border:none; background:transparent; font-weight:bold; font-size:16px; padding:0;">
-                      <button onclick="document.getElementById('qtdModal').value = parseInt(document.getElementById('qtdModal').value)+1" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold;">+</button>
+                      <button type="button" onclick="document.getElementById('qtdModal').value=parseInt(document.getElementById('qtdModal').value)+1;atualizarTotalModalAdicionais()" style="width:30px; height:30px; border-radius:5px; border:1px solid #ccc; background:#fff; font-weight:bold;">+</button>
                   </div>
               </div>
               
@@ -388,21 +443,27 @@
           cancelButtonColor: '#aaa',
           confirmButtonText: 'Adicionar ao Pedido',
           cancelButtonText: 'Cancelar',
+          didOpen: () => atualizarTotalModalAdicionais(),
           preConfirm: () => {
               return {
-                  qtd: parseInt(document.getElementById('qtdModal').value),
-                  obs: document.getElementById('obsModal').value
+                  qtd: parseInt(document.getElementById('qtdModal').value) || 1,
+                  obs: document.getElementById('obsModal').value,
+                  adicionais: lerAdicionaisSelecionadosModal()
               }
           }
       }).then((result) => {
           if(result.isConfirmed) {
+              let adic = result.value.adicionais || [];
+              let extraVal = adic.reduce((s, a) => s + a.valor, 0);
+              let unit = precoBaseModalAdic + extraVal;
+              let qtd = result.value.qtd;
               carrinho.push({
                   idProduto: p.id,
                   desc: p.nome,
-                  valorUnitario: p.valor,
-                  valor: p.valor * result.value.qtd,
-                  qtd: result.value.qtd,
-                  ingredientes: p.ingredientes,
+                  valorUnitario: unit,
+                  valor: unit * qtd,
+                  qtd: qtd,
+                  ingredientes: textoIngredientesComAdicionais(p.ingredientes, adic),
                   obsCliente: result.value.obs,
                   data: new Date().toISOString().split('T')[0],
                   tipo: 'online', 
