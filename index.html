@@ -149,6 +149,9 @@
   /* LOGIN STYLE */
   #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, #4E342E 0%, #1a0f08 100%); z-index: 1000000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
   .login-box { background: rgba(62, 39, 35, 0.95); padding: 30px; border-radius: 30px; border: 2px solid var(--accent); width: 85%; max-width: 320px; text-align: center; }
+  .login-logo-wrap { display: flex; justify-content: center; align-items: center; margin-bottom: 15px; min-height: 120px; }
+  #logoLoginDisplay { width: 120px; height: 120px; border-radius: 50%; border: 3px solid #fff; object-fit: contain; background: #fff; display: none; margin: 0 auto; }
+  #logoLoginDisplay.visivel { display: block; }
 
   body.role-func .admin-only { display: none !important; }
   
@@ -187,7 +190,9 @@
 
 <div id="loginOverlay">
   <div class="login-box">
-    <img id="logoLoginDisplay" src="" style="width:120px; height:120px; border-radius:50%; border:3px solid #fff; object-fit:cover; margin-bottom:15px; background:#fff;">
+    <div class="login-logo-wrap">
+      <img id="logoLoginDisplay" src="" alt="Trailer da Naty">
+    </div>
     <h2 class="titulo" style="font-size:32px; margin-bottom:5px;">Trailer da Naty</h2>
     
     <div id="step-1" style="margin-top:20px;">
@@ -268,8 +273,14 @@
 
               <label style="font-size:11px; color:#aaa; margin-top:5px; display:block;">Imagem do QR Code (opcional — foto do QR do banco):</label>
               <input type="file" id="qrInput" accept="image/*" style="margin-bottom:8px;">
+              <div id="qrPreviewBox" style="display:none; text-align:center; margin-bottom:10px; padding:10px; background:#2D1B15; border-radius:8px; border:1px dashed #66BB6A;">
+                  <p style="font-size:11px; color:#aaa; margin:0 0 8px 0;">Prévia do QR salvo:</p>
+                  <img id="confEmpQrPreview" src="" alt="QR PIX" style="max-width:180px; max-height:180px; border:2px solid #AB47BC; border-radius:8px; background:#fff; padding:5px;">
+              </div>
 
-              <label style="font-size:11px; color:#aaa; margin-top:10px; display:block;">Selecione a logo para salvar (Nuvem):</label>
+              <button type="button" class="danger" onclick="removerQrPix()" style="width:100%; padding:10px; margin-bottom:12px; font-size:12px;">REMOVER QR PIX (desfazer imagem enviada)</button>
+
+              <label style="font-size:11px; color:#FFCA28; margin-top:10px; display:block; font-weight:bold;">Logo do Trailer - login, topo e fundo:</label>
               <input type="file" id="logoInput" accept="image/*" style="margin-bottom:8px;">
               
               <button class="primary" onclick="salvarDadosEmpresa()" style="width:100%; padding:15px; margin-bottom:10px; margin-top:10px;">💾 SALVAR DADOS</button>
@@ -825,16 +836,219 @@
       if (el) el.value = obterPixCopiaCola();
   }
 
-  function mostrarQrCodeFixo() {
-      let pix = obterPixCopiaCola();
-      preencherInputPixCopiaCola();
+  function salvarEmpCacheLocal() {
+      try {
+          localStorage.setItem('naty_emp_data', JSON.stringify({
+              nome: empDados.nome, end: empDados.end, tel: empDados.tel,
+              pixCopiaCola: empDados.pixCopiaCola, taxaEntrega: empDados.taxaEntrega,
+              statusLoja: empDados.statusLoja
+          }));
+      } catch (e) { /* cache leve sem imagens */ }
+  }
 
-      if (!pix) {
-          Swal.fire('PIX não configurado', 'Vá em Configurações & Backup, cole o código PIX Copia e Cola e clique em SALVAR DADOS.', 'warning');
+  function salvarQrCacheLocal(base64) {
+      try { localStorage.setItem('naty_qr_pix', base64); } catch (e) {
+          console.warn('QR grande demais para cache local — salvo só na nuvem.');
+      }
+  }
+
+  function imagemEhQrSalvo(base64) {
+      if (!base64) return false;
+      let qr = empDados.qrCodeBase64 || localStorage.getItem('naty_qr_pix') || '';
+      return !!(qr && base64 === qr);
+  }
+
+  function limparLogoDaTela() {
+      logoBase64 = '';
+      localStorage.removeItem('logoPastelaria');
+      let loginImg = document.getElementById('logoLoginDisplay');
+      let headerImg = document.getElementById('logoHeader');
+      if (loginImg) { loginImg.src = ''; loginImg.classList.remove('visivel'); }
+      if (headerImg) { headerImg.src = ''; headerImg.style.display = 'none'; }
+      document.body.style.removeProperty('--bg-logo');
+  }
+
+  function aplicarLogoNaTela(base64) {
+      if (!base64 || imagemEhQrSalvo(base64)) return;
+      logoBase64 = base64;
+      try { localStorage.setItem('logoPastelaria', base64); } catch (e) {}
+      let loginImg = document.getElementById('logoLoginDisplay');
+      let headerImg = document.getElementById('logoHeader');
+      if (loginImg) { loginImg.src = base64; loginImg.classList.add('visivel'); }
+      if (headerImg) { headerImg.src = base64; headerImg.style.display = 'block'; }
+      document.body.style.setProperty('--bg-logo', `url(${base64})`);
+  }
+
+  function corrigirLogoTrocadaPorQr() {
+      let logo = localStorage.getItem('logoPastelaria');
+      let qr = localStorage.getItem('naty_qr_pix') || empDados.qrCodeBase64 || '';
+      if (logo && qr && logo === qr) limparLogoDaTela();
+      limparQrDaTela();
+  }
+
+  function carregarVisualLoginInicial() {
+      corrigirLogoTrocadaPorQr();
+      db.collection("config").doc("empresa").get().then(doc => {
+          if (!doc.exists) return;
+          let d = doc.data();
+          if (d.logo && d.qrCode && d.logo === d.qrCode) {
+              limparLogoDaTela();
+              db.collection("config").doc("empresa").update({
+                  qrCode: firebase.firestore.FieldValue.delete(),
+                  logo: firebase.firestore.FieldValue.delete()
+              }).catch(() => {});
+              return;
+          }
+          if (d.logo) aplicarLogoNaTela(d.logo);
+      }).catch(() => {});
+  }
+
+  function restaurarTelaLoginTrailer() {
+      corrigirLogoTrocadaPorQr();
+      carregarVisualLoginInicial();
+      if (auth.currentUser) {
+          db.collection("config").doc("empresa").get().then(doc => {
+              if (!doc.exists) return;
+              let d = doc.data();
+              let upd = { qrCode: firebase.firestore.FieldValue.delete() };
+              if (d.logo && d.qrCode && d.logo === d.qrCode) upd.logo = firebase.firestore.FieldValue.delete();
+              return db.collection("config").doc("empresa").update(upd);
+          }).catch(() => {});
+      }
+  }
+
+  function limparQrDaTela() {
+      empDados.qrCodeBase64 = '';
+      localStorage.removeItem('naty_qr_pix');
+      atualizarPreviewQrConfig();
+      let imgPag = document.getElementById('imgPixQr');
+      if (imgPag) { imgPag.src = ''; imgPag.style.display = 'none'; }
+  }
+
+  function removerQrPix() {
+      Swal.fire({
+          title: 'Remover QR PIX?',
+          text: 'Isso apaga só o QR de pagamento. A logo do Trailer não será removida.',
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#EF5350',
+          confirmButtonText: 'Sim, remover QR'
+      }).then((r) => {
+          if (!r.isConfirmed) return;
+          restaurarTelaLoginTrailer();
+      });
+  }
+
+  function aplicarQrNaTela(base64) {
+      if (!base64) return;
+      empDados.qrCodeBase64 = base64;
+      salvarQrCacheLocal(base64);
+      atualizarPreviewQrConfig();
+      let imgPag = document.getElementById('imgPixQr');
+      if (imgPag) {
+          imgPag.onload = () => { imgPag.style.display = 'block'; };
+          imgPag.onerror = () => { imgPag.style.display = 'none'; };
+          imgPag.src = '';
+          imgPag.src = base64;
+          imgPag.style.display = 'block';
+      }
+  }
+
+  function atualizarPreviewQrConfig() {
+      let box = document.getElementById('qrPreviewBox');
+      let img = document.getElementById('confEmpQrPreview');
+      if (!box || !img) return;
+      if (empDados.qrCodeBase64) {
+          img.src = '';
+          img.src = empDados.qrCodeBase64;
+          box.style.display = 'block';
+      } else {
+          img.src = '';
+          box.style.display = 'none';
+      }
+  }
+
+  function processarImagemQr(file, dataUrl) {
+      return new Promise((resolve, reject) => {
+          if (file.size < 180000 && /^image\/(png|jpeg|jpg|webp)$/i.test(file.type || '')) {
+              resolve(dataUrl);
+              return;
+          }
+          let img = new Image();
+          img.onload = function() {
+              let maxLado = 420;
+              let escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+              let c = document.createElement('canvas');
+              c.width = Math.max(1, Math.round(img.width * escala));
+              c.height = Math.max(1, Math.round(img.height * escala));
+              let ctx = c.getContext('2d');
+              ctx.fillStyle = '#ffffff';
+              ctx.fillRect(0, 0, c.width, c.height);
+              ctx.drawImage(img, 0, 0, c.width, c.height);
+              let base64 = c.toDataURL('image/png');
+              if (base64.length > 950000) base64 = c.toDataURL('image/jpeg', 0.92);
+              resolve(base64);
+          };
+          img.onerror = () => reject(new Error('invalid'));
+          img.src = dataUrl;
+      });
+  }
+
+  function salvarImagemNaNuvem(file, campoFirebase, opts) {
+      opts = opts || {};
+      if (!file) return;
+      if (!auth.currentUser) {
+          Swal.fire('Faça login', 'Entre no sistema antes de enviar imagens.', 'warning');
+          return;
       }
 
+      Swal.fire({ title: 'Salvando imagem...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+      let reader = new FileReader();
+      reader.onload = function(event) {
+          let processar = (campoFirebase === 'qrCode')
+              ? processarImagemQr(file, event.target.result)
+              : Promise.resolve(event.target.result).then(dataUrl => new Promise((res, rej) => {
+                  let img = new Image();
+                  img.onload = function() {
+                      let maxLado = opts.maxLado || 300;
+                      let escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+                      let c = document.createElement('canvas');
+                      c.width = Math.round(img.width * escala);
+                      c.height = Math.round(img.height * escala);
+                      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                      res(c.toDataURL('image/jpeg', opts.qualidade || 0.8));
+                  };
+                  img.onerror = () => rej(new Error('invalid'));
+                  img.src = dataUrl;
+              }));
+
+          processar.then(base64 => {
+              if (campoFirebase === 'qrCode') aplicarQrNaTela(base64);
+
+              let dados = {};
+              dados[campoFirebase] = base64;
+              return db.collection("config").doc("empresa").set(dados, { merge: true }).then(() => base64);
+          }).then((base64) => {
+              if (campoFirebase === 'logo') aplicarLogoNaTela(base64);
+              Swal.fire(opts.tituloOk || 'Imagem salva!', 'A imagem já está visível na prévia.', 'success');
+              if (opts.inputEl) opts.inputEl.value = '';
+          }).catch(err => {
+              console.error(err);
+              Swal.fire('Erro ao salvar', 'Não foi possível gravar. Verifique login, internet ou use outra foto (PNG/JPG).', 'error');
+          });
+      };
+      reader.onerror = () => Swal.fire('Erro', 'Não foi possível ler o arquivo.', 'error');
+      reader.readAsDataURL(file);
+  }
+
+  function mostrarQrCodeFixo() {
+      preencherInputPixCopiaCola();
+      let pix = obterPixCopiaCola();
       let imgEl = document.getElementById('imgPixQr');
+
       if (empDados.qrCodeBase64) {
+          imgEl.src = '';
           imgEl.src = empDados.qrCodeBase64;
           imgEl.style.display = 'block';
       } else if (pix) {
@@ -842,6 +1056,7 @@
           imgEl.style.display = 'block';
       } else {
           imgEl.style.display = 'none';
+          Swal.fire('QR não encontrado', 'Em Configurações, envie a imagem do QR Code PIX e aguarde "QR Code PIX atualizado!".', 'warning');
       }
       document.getElementById('areaQrCodeVisor').style.display = 'block';
   }
@@ -901,12 +1116,15 @@
       
       document.getElementById('dataEntrada').value = obterDataHoraLocal();
       
-      const savedEmp = JSON.parse(localStorage.getItem('naty_emp_data'));
-      if(savedEmp) { empDados = savedEmp; atualizarInputsEmpresa(); }
-      if(logoBase64) {
-          document.getElementById('logoLoginDisplay').src = logoBase64;
-          document.body.style.setProperty('--bg-logo', `url(${logoBase64})`);
-      }
+      try {
+          const savedEmp = JSON.parse(localStorage.getItem('naty_emp_data') || 'null');
+          const qrCache = localStorage.getItem('naty_qr_pix');
+          if (savedEmp) empDados = { ...empDados, ...savedEmp };
+          if (qrCache) empDados.qrCodeBase64 = qrCache;
+          atualizarInputsEmpresa();
+          atualizarPreviewQrConfig();
+      } catch (e) { /* cache antigo ignorado */ }
+      carregarVisualLoginInicial();
       
       document.getElementById('senhaInput').value = '';
       
@@ -979,7 +1197,13 @@
       }); 
   }
 
+  let syncJaIniciado = false;
+
   function carregarSistema(user) {
+      if (syncJaIniciado) {
+          document.getElementById('loginOverlay').style.display = 'none';
+          return;
+      }
       db.collection("usuarios").doc(user.uid).get().then((doc) => {
           roleUsuarioAtual = (doc.exists) ? doc.data().perfil : 'admin';
           if(roleUsuarioAtual === 'func') { document.body.classList.add('role-func', 'mode-kds'); } 
@@ -992,10 +1216,12 @@
       });
   }
   
-  function logout() { sessionStorage.removeItem('logado_agora'); auth.signOut().then(()=>{ window.location.reload(); }); }
-  function resetarApp() { auth.signOut().then(() => { localStorage.clear(); sessionStorage.clear(); window.location.reload(); }); }
+  function logout() { sessionStorage.removeItem('logado_agora'); syncJaIniciado = false; auth.signOut().then(()=>{ window.location.reload(); }); }
+  function resetarApp() { auth.signOut().then(() => { localStorage.clear(); sessionStorage.clear(); syncJaIniciado = false; window.location.reload(); }); }
 
   function iniciarSync() {
+      if (syncJaIniciado) return;
+      syncJaIniciado = true;
       db.collection("clientes").orderBy("nome").onSnapshot((snap) => { 
           clientes = []; let chamouBeep = false;
           snap.forEach((d) => {
@@ -1028,8 +1254,9 @@
       db.collection("config").doc("empresa").onSnapshot((doc) => {
           if(doc.exists) {
               let d = doc.data();
-              empDados = { nome: d.nome, end: d.end, tel: d.tel, qrCodeBase64: d.qrCode, pixCopiaCola: d.pixCopiaCola || '', taxaEntrega: d.taxaEntrega || 0, statusLoja: d.statusLoja || 'aberto' };
+              empDados = { nome: d.nome, end: d.end, tel: d.tel, qrCodeBase64: d.qrCode || '', pixCopiaCola: d.pixCopiaCola || '', taxaEntrega: d.taxaEntrega || 0, statusLoja: d.statusLoja || 'aberto' };
               preencherInputPixCopiaCola();
+              atualizarPreviewQrConfig();
               
               // Atualiza o botão de status visualmente
               let btnStatus = document.getElementById('btnStatusLoja');
@@ -1043,13 +1270,13 @@
                   }
               }
 
-              localStorage.setItem('naty_emp_data', JSON.stringify(empDados));
+              if (d.qrCode) aplicarQrNaTela(d.qrCode);
+              else limparQrDaTela();
+              if (d.logo && (!d.qrCode || d.logo !== d.qrCode)) aplicarLogoNaTela(d.logo);
+              else if (logoBase64 && !imagemEhQrSalvo(logoBase64)) aplicarLogoNaTela(logoBase64);
+              else limparLogoDaTela();
+              salvarEmpCacheLocal();
               atualizarInputsEmpresa();
-              if(d.logo) {
-                  logoBase64 = d.logo; localStorage.setItem('logoPastelaria', d.logo);
-                  document.getElementById('logoHeader').src = d.logo; document.getElementById('logoHeader').style.display = 'block';
-                  document.body.style.setProperty('--bg-logo', `url(${d.logo})`);
-              }
               if(d.contador !== undefined) document.getElementById('numPedido').value = d.contador + 1;
           }
       });
@@ -2170,6 +2397,7 @@
           if(document.getElementById('confEmpPix')) {
               document.getElementById('confEmpPix').value = empDados.pixCopiaCola || '';
           }
+          atualizarPreviewQrConfig();
       } 
   }
   
@@ -2182,24 +2410,14 @@
       return String(d); 
   }
   
-  document.getElementById('logoInput').addEventListener('change', function(e) { let file = e.target.files; if(!file) return; let reader = new FileReader(); reader.onload = function(event) { let img = new Image(); img.onload = function() { let c = document.createElement('canvas'); let ctx = c.getContext('2d'); let scale = 300 / img.width; c.width = 300; c.height = img.height * scale; ctx.drawImage(img, 0, 0, c.width, c.height); let base64 = c.toDataURL('image/jpeg', 0.8); db.collection("config").doc("empresa").set({logo: base64}, {merge:true}); Swal.fire('Logo Atualizada!', '', 'success'); }; img.src = event.target.result; }; reader.readAsDataURL(file); });
-  
-  document.getElementById('qrInput').addEventListener('change', function(e) { 
-      let file = e.target.files; if(!file) return; 
-      let reader = new FileReader(); 
-      reader.onload = function(event) { 
-          let img = new Image(); 
-          img.onload = function() { 
-              let c = document.createElement('canvas'); let ctx = c.getContext('2d'); 
-              let scale = 300 / img.width; c.width = 300; c.height = img.height * scale; 
-              ctx.drawImage(img, 0, 0, c.width, c.height); 
-              let base64 = c.toDataURL('image/jpeg', 0.8); 
-              db.collection("config").doc("empresa").set({qrCode: base64}, {merge:true}); 
-              Swal.fire('QR Code Atualizado e Salvo!', '', 'success'); 
-          }; 
-          img.src = event.target.result; 
-      }; 
-      reader.readAsDataURL(file); 
+  document.getElementById('logoInput').addEventListener('change', function(e) {
+      let file = e.target.files && e.target.files[0];
+      salvarImagemNaNuvem(file, 'logo', { tituloOk: 'Logo atualizada!', inputEl: e.target });
+  });
+
+  document.getElementById('qrInput').addEventListener('change', function(e) {
+      let file = e.target.files && e.target.files[0];
+      salvarImagemNaNuvem(file, 'qrCode', { tituloOk: 'QR Code PIX atualizado!', inputEl: e.target });
   });
 
   function selecionarPerfil(p) { document.getElementById('step-1').style.display='none'; document.getElementById('step-2').style.display='block'; document.getElementById('msgLogin').innerText=''; }
